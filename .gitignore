@@ -1,0 +1,10 @@
+*.DS_Store
+*.pyc
+*.aux
+*.log
+*.out
+dataset/
+.idea/
+.ipynb_checkpoints/
+paths.txt
+wandb/
