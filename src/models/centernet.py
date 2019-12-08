@@ -25,6 +25,10 @@ class Centernet:
         # use L2 loss
         loss = tf.reduce_mean(tf.square(out_map - heat_map))
 
+        # smooth the output heat map
+        median_filter = tf.ones((3, 3, 1, 1)) * 1/9
+        out_map = tf.nn.conv2d(out_map, median_filter, strides=1, padding='SAME')
+
         # calculate the l2 distance to the ground truth centroid
         gt_pnt = tf.unravel_index(tf.math.argmax(tf.reshape(heat_map, [-1])), tf.cast(tf.shape(heat_map), tf.int64))
         out_pnt = tf.unravel_index(tf.math.argmax(tf.reshape(out_map, [-1])), tf.cast(tf.shape(out_map), tf.int64))
