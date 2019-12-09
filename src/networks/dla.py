@@ -36,7 +36,7 @@ def _max_pooling(x, pool_size, strides):
 
 
 def _avg_pooling(x, pool_size, strides):
-    return tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=strides)(x)
+    return tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=strides, padding='same')(x)
 
 
 class BasicBlock(tf.keras.Model):
@@ -151,6 +151,48 @@ def dla_net():
     keypoints = _conv(features, NUM_CLASS, 3)
     # size = _conv(features, 2, 3, 1)
     
+    model = tf.keras.Model(inputs=inputs, outputs=keypoints)
+
+    return model
+
+
+def dla_lite_net():
+    base_filters = 8
+    # channel last; None -> grayscale or color images
+    inputs = tf.keras.layers.Input(shape=INPUT_SHAPE)
+
+    x = _conv(inputs, base_filters, 7)
+    x = _conv(x, base_filters * 2, 3)
+    stage2 = _conv(x, base_filters * 2, 3, strides=2)  # 1/2
+
+    # stage 3
+    dla_stage3 = _dla_generator(stage2, base_filters * 4, levels=1)
+    dla_stage3 = _max_pooling(dla_stage3, 2, 2)  # 1/4
+
+    # stage 4
+    dla_stage4 = _dla_generator(dla_stage3, base_filters * 8, levels=2)
+    dla_stage4 = _max_pooling(dla_stage4, 2, 2)  # 1/8
+    residual = _conv(dla_stage3, base_filters * 8, 1)
+    residual = _avg_pooling(residual, 2, 2)  # 1/8
+    dla_stage4 += residual
+
+    dla_stage4 = _conv(dla_stage4, base_filters * 16, 1)
+    dla_stage4_3 = _dconv(dla_stage4, base_filters * 8, 4, 2)  # 1/4
+
+    dla_stage3 = _conv(dla_stage3, base_filters * 8, 1)
+    dla_stage3_3 = _conv(dla_stage3 + dla_stage4_3, base_filters * 8, 3)
+    dla_stage3_3 = _dconv(dla_stage3_3, base_filters * 4, 4, 2)  # 1/2
+
+    stage2 = _conv(stage2, base_filters * 4, 1)
+    stage2 = _conv(stage2 + dla_stage3_3, base_filters * 4, 1)
+    stage2 = _dconv(stage2, base_filters * 2, 4, 2)
+
+    features = _conv(stage2, base_filters * 1, 1)
+
+    # separate to multiple output heads
+    keypoints = _conv(features, NUM_CLASS, 3)
+    # size = _conv(features, 2, 3, 1)
+
     model = tf.keras.Model(inputs=inputs, outputs=keypoints)
 
     return model
