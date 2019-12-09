@@ -1,6 +1,5 @@
 import numpy as np
 import h5py
-from scipy.signal import convolve2d
 
 
 def thermal_preprocess(thermal_mat):
@@ -79,8 +78,6 @@ def point_to_heatmap(point, bb_size, map_shape):
 
 
 def heatmap_to_point(heat_map):
-    # smoothen the heat map
-    heat_map = convolve2d(np.ones((3, 3)) * 1 / 9, heat_map)
 
     key_point = np.unravel_index(np.argmax(heat_map), heat_map.shape)
 
