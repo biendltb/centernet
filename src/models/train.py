@@ -139,7 +139,7 @@ class ModelTrain:
             fig = h_map + self.visualized_eval_images[i, :, :, 0]
 
             # plot the keypoint on image
-            keypoint, bb_size = helpers.heatmap_to_point(h_map)
+            keypoint, bb_size, _ = helpers.heatmap_to_point(h_map)
             fig[keypoint] = 0
 
             cmap = plt.cm.viridis

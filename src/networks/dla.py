@@ -78,11 +78,34 @@ class BasicBlock(tf.keras.Model):
         return x
 
 
+def _basic_block(x, filters, kernel_size=3, strides=1):
+    input_filters = x.shape[3]
+
+    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1,
+                                                      padding='same', use_bias=False)
+
+    # if input and the block have different number of filters, use one more conv layer to equalise it
+    residual = tf.cond(tf.equal(input_filters, filters),
+                       lambda: x,
+                       lambda: _tmp_conv(x))
+
+    x = _conv(x, filters=filters, kernel_size=kernel_size)
+
+    x = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
+                               padding='same', use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+
+    x += residual
+    x = tf.keras.layers.ReLU()(x)
+
+    return x
+
+
 # modified from Stick-To
 def _dla_generator(bottom, filters, levels):
     if levels == 1:
-        block1 = BasicBlock(filters=filters)(bottom)
-        block2 = BasicBlock(filters=filters)(block1)
+        block1 = _basic_block(bottom, filters)  # BasicBlock(filters=filters)(bottom)
+        block2 = _basic_block(block1, filters)  # BasicBlock(filters=filters)(block1)
         aggregation = block1 + block2
         aggregation = _conv(aggregation, filters, kernel_size=3)
     else:
