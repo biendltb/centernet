@@ -162,8 +162,8 @@ def dla_lite_net():
     inputs = tf.keras.layers.Input(shape=INPUT_SHAPE)
 
     x = _conv(inputs, base_filters, 7)
-    x = _conv(x, base_filters * 2, 3)
-    stage2 = _conv(x, base_filters * 2, 3, strides=2)  # 1/2
+    stage1 = _conv(x, base_filters * 2, 3)
+    stage2 = _conv(stage1, base_filters * 2, 3, strides=2)  # 1/2
 
     # stage 3
     dla_stage3 = _dla_generator(stage2, base_filters * 4, levels=1)
@@ -187,7 +187,10 @@ def dla_lite_net():
     stage2 = _conv(stage2 + dla_stage3_3, base_filters * 4, 1)
     stage2 = _dconv(stage2, base_filters * 2, 4, 2)
 
-    features = _conv(stage2, base_filters * 1, 1)
+    stage1 = _conv(stage1, base_filters * 2, 1)
+    stage1 = _conv(stage1 + stage2, base_filters * 2, 1)
+
+    features = _conv(stage1, base_filters * 1, 1)
 
     # separate to multiple output heads
     keypoints = _conv(features, NUM_CLASS, 3)

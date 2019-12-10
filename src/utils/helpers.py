@@ -1,5 +1,6 @@
 import numpy as np
 import h5py
+from scipy.ndimage.filters import gaussian_filter
 
 
 def thermal_preprocess(thermal_mat):
@@ -49,7 +50,7 @@ def point_to_heatmap(point, bb_size, map_shape):
 
     G = exp(-((x - x0)**2/(2*sigma_x**2) + (y-y0)**2/(2*sigma_y**2))))
     """
-    w, h = map_shape
+    h, w = map_shape
     c_x, c_y = point
 
     bb_w, bb_h = bb_size
@@ -57,7 +58,7 @@ def point_to_heatmap(point, bb_size, map_shape):
     sigma_x = bb_w/2
     sigma_y = bb_h/2
 
-    x_grid, y_grid = np.meshgrid(np.arange(h)/(h-1), np.arange(w)/(w-1))
+    x_grid, y_grid = np.meshgrid(np.arange(w)/(w-1), np.arange(h)/(h-1))
 
     heat_map = np.exp(
         -(
@@ -77,11 +78,30 @@ def point_to_heatmap(point, bb_size, map_shape):
     return heat_map
 
 
+def _log(x):
+    """ Avoid x = 1 -> log(x) = 0 """
+    if x == 1:
+        return np.log(0.999)
+
+    return np.log(x)
+
+
 def heatmap_to_point(heat_map):
+    # Use a 3x3 kernel to smooth the heat map
+    heat_map = gaussian_filter(heat_map, sigma=3)
+    # key_point = np.unravel_index(np.argmax(heat_map), heat_map.shape)
 
-    key_point = np.unravel_index(np.argmax(heat_map), heat_map.shape)
+    max_x = np.argmax(np.sum(heat_map, axis=0))
+    max_y = np.argmax(np.sum(heat_map, axis=1))
 
-    return key_point
+    prob = heat_map[max_y, max_x]
+
+    # find sigmas
+    h, w = heat_map.shape
+    bb_h = np.mean([np.sqrt(abs(-((i - max_y)/(h - 1))**2 / (2 * _log(heat_map[i, max_x])))) for i in range(h)]) * 2 * h
+    bb_w = np.mean([np.sqrt(abs(-((i - max_x)/(w - 1))**2 / (2 * _log(heat_map[max_y, i])))) for i in range(w)]) * 2 * w
+
+    return (max_y, max_x), (bb_h, bb_w), prob
 
 
 if __name__ == '__main__':
