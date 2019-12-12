@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 from scipy.ndimage.filters import gaussian_filter
+import tensorflow as tf
 
 
 def thermal_preprocess(thermal_mat):
@@ -70,11 +71,6 @@ def point_to_heatmap(point, bb_size, map_shape):
     # convert to float32 format (compatible with TF2.0)
     heat_map = heat_map.reshape(map_shape).astype(np.float32)
 
-    # # normalise the heat map to 0 -> 1
-    # _min = np.min(heat_map)
-    # _max = np.max(heat_map)
-    # heat_map = (heat_map - _min)/(_max - _min)
-
     return heat_map
 
 
@@ -84,6 +80,68 @@ def _log(x):
         return np.log(0.999)
 
     return np.log(x)
+
+
+def heatmap_to_point_tf(heatmap):
+    """ Convert the heat map to point and bounding box in Tensorflow
+        Input tensor shape: batch_size * h * w * channel
+    """
+    # heatmap = tf.expand_dims(heatmap, axis=0)
+    heatmap = np.array([heatmap for i in range(32)])
+    heatmap = tf.expand_dims(heatmap, axis=-1)
+
+    batch_size = heatmap.shape[0]
+    h, w = heatmap.shape[1:3]
+
+    gaussian_kernel = tf.constant([
+        [1, 2, 1],
+        [2, 4, 2],
+        [1, 2, 1]
+    ], dtype=tf.float32) / 16.0
+
+    filters = gaussian_kernel[:, :, tf.newaxis, tf.newaxis]
+
+    heatmaps_tensor = heatmap
+
+    original_tensor = heatmaps_tensor
+
+    heatmaps_tensor = tf.nn.conv2d(heatmaps_tensor, filters, strides=1, padding="SAME")
+
+    h, w = heatmaps_tensor.shape[1:3]
+
+    max_x = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=1), axis=1, output_type=tf.int32)[:, 0]
+    max_y = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=2), axis=1, output_type=tf.int32)[:, 0]
+
+    probs = tf.gather_nd(heatmaps_tensor, tf.stack([tf.range(batch_size), max_y, max_x, tf.zeros_like(max_y)], axis=-1))
+    # probs = tf.stack([tf.reduce_max(tf.slice(original_tensor, [i, max_y[i]-2, max_x[i]-2, 0], [1, 5, 5, 1])) for i in range(batch_size)])
+
+    pos_diff_h = tf.cast(
+        tf.math.square(
+            (tf.tile(tf.expand_dims(tf.range(h), axis=0), [batch_size, 1]) - tf.tile(tf.expand_dims(max_y, -1),
+                                                                                     [1, h])) / (h - 1)
+        ),
+        tf.float32
+    )
+    bb_h = tf.reduce_mean(tf.sqrt(
+        abs((pos_diff_h / (
+                    2.0 * tf.math.log(tf.stack([heatmaps_tensor[i, :, max_x[i], 0] for i in range(batch_size)])))))),
+        axis=1) * 2 * h
+
+    pos_diff_w = tf.cast(
+        tf.math.square(
+            (tf.tile(tf.expand_dims(tf.range(w), axis=0), [batch_size, 1]) - tf.tile(tf.expand_dims(max_x, -1),
+                                                                                     [1, w])) / (w - 1)
+        ),
+        tf.float32
+    )
+    bb_w = tf.reduce_mean(tf.sqrt(
+        abs((pos_diff_w / (
+                    2.0 * tf.math.log(tf.stack([heatmaps_tensor[i, max_y[i], :, 0] for i in range(batch_size)])))))),
+        axis=1) * 2 * w
+
+    out = tf.stack([tf.cast(max_y, tf.float32), tf.cast(max_x, tf.float32), bb_h, bb_w, probs], axis=-1)
+
+    return max_y[0].numpy(), max_x[0].numpy(), bb_h[0].numpy(), bb_w[0].numpy(), probs[0].numpy()
 
 
 def heatmap_to_point(heat_map):

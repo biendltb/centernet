@@ -10,20 +10,24 @@ from src.utils import helpers
 
 class ThermalEval:
     def __init__(self):
-        self.model = dla.dla_lite_net()
+        self.model = dla.dla_lite_net(mode='eval')
 
     def load_ckpt(self, ckpt_path):
         checkpoint = tf.train.Checkpoint(model=self.model)
         checkpoint.restore(ckpt_path)
 
     def infer_frame(self, thermal_frame):
-        heat_map = self.model.predict(thermal_frame, batch_size=1)
+        outs = self.model.predict(thermal_frame, batch_size=1)[0]
 
-        _map = heat_map[0, :, :, 0]
+        # _map = outs[0, :, :, 0]
+        # outs = helpers.heatmap_to_point(_map)
 
-        outputs = helpers.heatmap_to_point(_map)
+        max_y, max_x, bb_h, bb_w, prob = outs
+        max_y, max_x = int(max_y), int(max_x)
 
-        return outputs
+        print(prob)
+
+        return (max_y, max_x), (bb_h, bb_w), prob
 
     def infer_video(self, thermal_path):
         with h5py.File(thermal_path) as f:
@@ -67,19 +71,23 @@ class ThermalEval:
                     break
             print('Average execution time: {:.2f}ms | {:.2f} fps'.format(np.mean(exec_time) * 1000, 1/np.mean(exec_time)))
 
-    def save_mdel(self, save_path):
+    def save_model(self, save_path):
         self.model.save(save_path, save_format='tf')
 
 
 if __name__ == '__main__':
-    thermal_video = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/HD/thermal/anhltp/set1_0.hdf5'
+    thermal_video = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/HD/thermal/anhdnt/set1_0.hdf5'
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_1/ckpts/ckpt-9'
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_3/ckpts/ckpt-24'
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_6/ckpts/ckpt-8'
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_7/ckpts/ckpt-20'
-    ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_8/ckpts/ckpt-20'
+    # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_8/ckpts/ckpt-20'
+    ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_9/ckpts/ckpt-12'
 
     thermal_model = ThermalEval()
     thermal_model.load_ckpt(ckpt_path)
 
     thermal_model.infer_video(thermal_video)
+
+    # save_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_9/export/'
+    # thermal_model.save_model(save_path)

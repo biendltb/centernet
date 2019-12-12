@@ -179,10 +179,65 @@ def dla_net():
     return model
 
 
-def dla_lite_net():
+def heatmap_to_point(heatmaps_tensor, batch_size=1):
+    """ Convert the heat map to point and bounding box in Tensorflow
+        Input tensor shape: batch_size * h * w * channel
+    """
+    
+    gaussian_kernel = tf.constant([
+        [1, 2, 1],
+        [2, 4, 2],
+        [1, 2, 1]
+    ], dtype=tf.float32) / 16.0
+
+    filters = gaussian_kernel[:, :, tf.newaxis, tf.newaxis]
+
+    original_tensor = heatmaps_tensor
+
+    heatmaps_tensor = tf.nn.conv2d(heatmaps_tensor, filters, strides=1, padding="SAME")
+
+    h, w = heatmaps_tensor.shape[1:3]
+
+    max_x = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=1), axis=1, output_type=tf.int32)[:, 0]
+    max_y = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=2), axis=1, output_type=tf.int32)[:, 0]
+
+    # probs = tf.gather_nd(original_tensor, tf.stack([tf.range(batch_size), max_y, max_x, tf.zeros_like(max_y)], axis=-1))
+    probs = tf.stack(
+        [tf.reduce_max(tf.slice(original_tensor, [i, max_y[i] - 2, max_x[i] - 2, 0], [1, 5, 5, 1])) for i in
+         range(batch_size)])
+    probs = tf.clip_by_value(probs, clip_value_min=0, clip_value_max=0.99999)
+
+    pos_diff_h = tf.cast(
+        tf.math.square(
+            (tf.tile(tf.expand_dims(tf.range(h), axis=0), [batch_size, 1]) - tf.tile(tf.expand_dims(max_y, -1),
+                                                                                     [1, h])) / (h - 1)
+        ),
+        tf.float32
+    )
+    bb_h = tf.reduce_mean(tf.sqrt(
+        abs((pos_diff_h / (2.0 * tf.math.log(tf.stack([heatmaps_tensor[i, :, max_x[i], 0] for i in range(batch_size)])))))),
+        axis=1) * 2 * h
+
+    pos_diff_w = tf.cast(
+        tf.math.square(
+            (tf.tile(tf.expand_dims(tf.range(w), axis=0), [batch_size, 1]) - tf.tile(tf.expand_dims(max_x, -1),
+                                                                                     [1, w])) / (w - 1)
+        ),
+        tf.float32
+    )
+    bb_w = tf.reduce_mean(tf.sqrt(
+        abs((pos_diff_w / (2.0 * tf.math.log(tf.stack([heatmaps_tensor[i, max_y[i], :, 0] for i in range(batch_size)])))))),
+        axis=1) * 2 * w
+
+    out = tf.stack([tf.cast(max_y, tf.float32), tf.cast(max_x, tf.float32), bb_h, bb_w, probs], axis=-1)
+
+    return out
+
+
+def dla_lite_net(mode='train'):
     base_filters = 8
     # channel last; None -> grayscale or color images
-    inputs = tf.keras.layers.Input(shape=INPUT_SHAPE)
+    inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, name='thermal_frame')
 
     x = _conv(inputs, base_filters, 7)
     stage1 = _conv(x, base_filters * 2, 3)
@@ -219,7 +274,11 @@ def dla_lite_net():
     keypoints = _conv(features, NUM_CLASS, 3)
     # size = _conv(features, 2, 3, 1)
 
-    model = tf.keras.Model(inputs=inputs, outputs=keypoints)
+    if mode == 'train':
+        model = tf.keras.Model(inputs=inputs, outputs=keypoints)
+    else:
+        out = tf.keras.layers.Lambda(lambda hmap: heatmap_to_point(hmap), name='thermal_output')(keypoints)
+        model = tf.keras.Model(inputs=inputs, outputs=out)
 
     return model
 
