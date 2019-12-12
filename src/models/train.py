@@ -10,6 +10,7 @@ import tensorflow as tf
 from src.models.centernet import Centernet
 from src.utils.path_cvt import get_path_to_vis_ims, get_path_to_ckpts
 from src.datasets.thermal_dataset import load_vis_data
+from src.utils import helpers
 
 # -------> For RTX NVIDIA GPU only
 from tensorflow.compat.v1 import ConfigProto
@@ -134,7 +135,13 @@ class ModelTrain:
         plt.figure(figsize=(9, 9))
 
         for i in range(predictions.shape[0]):
-            fig = predictions[i, :, :, 0] + self.visualized_eval_images[i, :, :, 0]
+            h_map = predictions[i, :, :, 0]
+            fig = h_map + self.visualized_eval_images[i, :, :, 0]
+
+            # plot the keypoint on image
+            keypoint, bb_size, _ = helpers.heatmap_to_point(h_map)
+            fig[keypoint] = 0
+
             cmap = plt.cm.viridis
             norm = plt.Normalize(vmin=fig.min(), vmax=fig.max())
             image = cmap(norm(fig))
@@ -149,8 +156,8 @@ class ModelTrain:
 
 if __name__ == '__main__':
     trainer = ModelTrain(
-        epochs=5000,
-        batch_size=2,
+        epochs=500,
+        batch_size=32,
         use_wandb=True
     )
 
