@@ -229,6 +229,9 @@ def heatmap_to_point(heatmaps_tensor, batch_size=1):
         abs((pos_diff_w / (2.0 * tf.math.log(tf.stack([heatmaps_tensor[i, max_y[i], :, 0] for i in range(batch_size)])))))),
         axis=1) * 2 * w
 
+    # set width is the minimum of width and height
+    bb_w = tf.math.minimum(bb_h, bb_w)
+
     out = tf.stack([tf.cast(max_y, tf.float32), tf.cast(max_x, tf.float32), bb_h, bb_w, probs], axis=-1)
 
     return out
