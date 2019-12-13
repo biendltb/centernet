@@ -201,10 +201,10 @@ def heatmap_to_point(heatmaps_tensor, batch_size=1):
     max_x = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=1), axis=1, output_type=tf.int32)[:, 0]
     max_y = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=2), axis=1, output_type=tf.int32)[:, 0]
 
-    # probs = tf.gather_nd(original_tensor, tf.stack([tf.range(batch_size), max_y, max_x, tf.zeros_like(max_y)], axis=-1))
-    probs = tf.stack(
-        [tf.reduce_max(tf.slice(original_tensor, [i, max_y[i] - 2, max_x[i] - 2, 0], [1, 5, 5, 1])) for i in
-         range(batch_size)])
+    probs = tf.gather_nd(original_tensor, tf.stack([tf.range(batch_size), max_y, max_x, tf.zeros_like(max_y)], axis=-1))
+    # probs = tf.stack(
+    #     [tf.reduce_max(tf.slice(original_tensor, [i, max_y[i] - 2, max_x[i] - 2, 0], [1, 5, 5, 1])) for i in
+    #      range(batch_size)])
     probs = tf.clip_by_value(probs, clip_value_min=0, clip_value_max=0.99999)
 
     pos_diff_h = tf.cast(
