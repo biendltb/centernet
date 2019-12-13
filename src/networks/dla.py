@@ -62,6 +62,29 @@ def _basic_block(x, filters, kernel_size=3, strides=1):
     return x
 
 
+def _basic_block(x, filters, kernel_size=3, strides=1):
+    input_filters = x.shape[3]
+
+    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1,
+                                                      padding='same', use_bias=False)
+
+    # if input and the block have different number of filters, use one more conv layer to equalise it
+    residual = tf.cond(tf.equal(input_filters, filters),
+                       lambda: x,
+                       lambda: _tmp_conv(x))
+
+    x = _conv(x, filters=filters, kernel_size=kernel_size)
+
+    x = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
+                               padding='same', use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+
+    x += residual
+    x = tf.keras.layers.ReLU()(x)
+
+    return x
+
+
 # modified from Stick-To
 def _dla_generator(bottom, filters, levels):
     if levels == 1:
@@ -166,6 +189,7 @@ def heatmap_to_point(heatmaps_tensor, batch_size=1):
     # probs = tf.stack(
     #     [tf.reduce_max(tf.slice(original_tensor, [i, max_y[i] - 2, max_x[i] - 2, 0], [1, 5, 5, 1])) for i in
     #      range(batch_size)])
+    
     probs = tf.clip_by_value(probs, clip_value_min=0, clip_value_max=0.99999)
 
     pos_diff_h = tf.cast(
