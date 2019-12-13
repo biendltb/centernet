@@ -39,45 +39,6 @@ def _avg_pooling(x, pool_size, strides):
     return tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=strides, padding='same')(x)
 
 
-class BasicBlock(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, strides=1):
-        super(BasicBlock, self).__init__()
-
-        self.conv1 = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
-                                            padding='same', use_bias=False)
-        self.bn1 = tf.keras.layers.BatchNormalization()
-        self.relu = tf.keras.layers.ReLU()
-
-        self.conv2 = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
-                                            padding='same', use_bias=False)
-        self.bn2 = tf.keras.layers.BatchNormalization()
-
-        self.filters = filters
-
-        self._conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1,
-                                            padding='same', use_bias=False)
-
-    def call(self, x):
-        input_filters = tf.shape(x)[3]
-        # if input and the block have different number of filters, use one more conv layer to equalise it
-        residual = tf.cond(tf.equal(input_filters, self.filters),
-                           lambda: x,
-                           # lambda: _conv(x, self.filters, 1, 1))
-                           lambda: self._conv(x))
-
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-
-        x = self.conv2(x)
-        x = self.bn2(x)
-
-        x += residual
-        x = self.relu(x)
-
-        return x
-
-
 def _basic_block(x, filters, kernel_size=3, strides=1):
     input_filters = x.shape[3]
 
@@ -104,8 +65,8 @@ def _basic_block(x, filters, kernel_size=3, strides=1):
 # modified from Stick-To
 def _dla_generator(bottom, filters, levels):
     if levels == 1:
-        block1 = _basic_block(bottom, filters)  # BasicBlock(filters=filters)(bottom)
-        block2 = _basic_block(block1, filters)  # BasicBlock(filters=filters)(block1)
+        block1 = _basic_block(bottom, filters)
+        block2 = _basic_block(block1, filters)
         aggregation = block1 + block2
         aggregation = _conv(aggregation, filters, kernel_size=3)
     else:
