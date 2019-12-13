@@ -82,12 +82,14 @@ if __name__ == '__main__':
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_6/ckpts/ckpt-8'
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_7/ckpts/ckpt-20'
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_8/ckpts/ckpt-20'
-    ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_9/ckpts/ckpt-12'
+    
+    # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_9/ckpts/ckpt-12'
+    ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_10/ckpts/ckpt-12'
 
     thermal_model = ThermalEval()
     thermal_model.load_ckpt(ckpt_path)
 
     thermal_model.infer_video(thermal_video)
 
-    # save_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_9/export/'
+    # save_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/centernet/model_10/export/'
     # thermal_model.save_model(save_path)

@@ -39,43 +39,27 @@ def _avg_pooling(x, pool_size, strides):
     return tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=strides, padding='same')(x)
 
 
-class BasicBlock(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, strides=1):
-        super(BasicBlock, self).__init__()
+def _basic_block(x, filters, kernel_size=3, strides=1):
+    input_filters = x.shape[3]
 
-        self.conv1 = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
-                                            padding='same', use_bias=False)
-        self.bn1 = tf.keras.layers.BatchNormalization()
-        self.relu = tf.keras.layers.ReLU()
+    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1,
+                                                      padding='same', use_bias=False)
 
-        self.conv2 = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
-                                            padding='same', use_bias=False)
-        self.bn2 = tf.keras.layers.BatchNormalization()
+    # if input and the block have different number of filters, use one more conv layer to equalise it
+    residual = tf.cond(tf.equal(input_filters, filters),
+                       lambda: x,
+                       lambda: _tmp_conv(x))
 
-        self.filters = filters
+    x = _conv(x, filters=filters, kernel_size=kernel_size)
 
-        self._conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1,
-                                            padding='same', use_bias=False)
+    x = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
+                               padding='same', use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
 
-    def call(self, x):
-        input_filters = tf.shape(x)[3]
-        # if input and the block have different number of filters, use one more conv layer to equalise it
-        residual = tf.cond(tf.equal(input_filters, self.filters),
-                           lambda: x,
-                           # lambda: _conv(x, self.filters, 1, 1))
-                           lambda: self._conv(x))
+    x += residual
+    x = tf.keras.layers.ReLU()(x)
 
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-
-        x = self.conv2(x)
-        x = self.bn2(x)
-
-        x += residual
-        x = self.relu(x)
-
-        return x
+    return x
 
 
 def _basic_block(x, filters, kernel_size=3, strides=1):
@@ -104,8 +88,8 @@ def _basic_block(x, filters, kernel_size=3, strides=1):
 # modified from Stick-To
 def _dla_generator(bottom, filters, levels):
     if levels == 1:
-        block1 = _basic_block(bottom, filters)  # BasicBlock(filters=filters)(bottom)
-        block2 = _basic_block(block1, filters)  # BasicBlock(filters=filters)(block1)
+        block1 = _basic_block(bottom, filters)
+        block2 = _basic_block(block1, filters)
         aggregation = block1 + block2
         aggregation = _conv(aggregation, filters, kernel_size=3)
     else:
@@ -201,10 +185,11 @@ def heatmap_to_point(heatmaps_tensor, batch_size=1):
     max_x = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=1), axis=1, output_type=tf.int32)[:, 0]
     max_y = tf.math.argmax(tf.math.reduce_sum(heatmaps_tensor, axis=2), axis=1, output_type=tf.int32)[:, 0]
 
-    # probs = tf.gather_nd(original_tensor, tf.stack([tf.range(batch_size), max_y, max_x, tf.zeros_like(max_y)], axis=-1))
-    probs = tf.stack(
-        [tf.reduce_max(tf.slice(original_tensor, [i, max_y[i] - 2, max_x[i] - 2, 0], [1, 5, 5, 1])) for i in
-         range(batch_size)])
+    probs = tf.gather_nd(original_tensor, tf.stack([tf.range(batch_size), max_y, max_x, tf.zeros_like(max_y)], axis=-1))
+    # probs = tf.stack(
+    #     [tf.reduce_max(tf.slice(original_tensor, [i, max_y[i] - 2, max_x[i] - 2, 0], [1, 5, 5, 1])) for i in
+    #      range(batch_size)])
+    
     probs = tf.clip_by_value(probs, clip_value_min=0, clip_value_max=0.99999)
 
     pos_diff_h = tf.cast(
@@ -228,6 +213,9 @@ def heatmap_to_point(heatmaps_tensor, batch_size=1):
     bb_w = tf.reduce_mean(tf.sqrt(
         abs((pos_diff_w / (2.0 * tf.math.log(tf.stack([heatmaps_tensor[i, max_y[i], :, 0] for i in range(batch_size)])))))),
         axis=1) * 2 * w
+
+    # set width is the minimum of width and height
+    bb_w = tf.math.minimum(bb_h, bb_w)
 
     out = tf.stack([tf.cast(max_y, tf.float32), tf.cast(max_x, tf.float32), bb_h, bb_w, probs], axis=-1)
 
