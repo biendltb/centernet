@@ -23,6 +23,6 @@ class GauFace:
         out_map = self.model(im)
 
         # use L2 loss
-        loss = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(out_map - heat_map))))
+        loss = tf.sqrt(tf.reduce_sum(tf.square(out_map - heat_map)))
 
         return loss

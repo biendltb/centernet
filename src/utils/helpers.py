@@ -325,7 +325,7 @@ def draw_bb_on_im(heat_map, vis_im):
         x1, x2 = int(c_x - bb_w / 2), int(c_x + bb_w / 2)
         y1, y2 = int(c_y - bb_h / 2), int(c_y + bb_h / 2)
 
-        vis_im = cv2.rectangle(vis_im, (x1, y1), (x2, y2), (0, 0, 255), 1)
+        vis_im = cv2.rectangle(vis_im, (x1, y1), (x2, y2), (0, 0, 255), 2)
         vis_im = cv2.circle(vis_im, (int(c_x), int(c_y)), 1, (0, 255, 0), 2)
 
     return vis_im
