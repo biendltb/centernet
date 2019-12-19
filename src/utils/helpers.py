@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 from scipy.ndimage.filters import gaussian_filter
 import tensorflow as tf
+import cv2
 
 
 def thermal_preprocess(thermal_mat):
@@ -165,7 +166,180 @@ def heatmap_to_point(heat_map):
     return (max_y, max_x), (bb_h, bb_w), prob
 
 
+# PARSE HEAT MAP TO BOXES
+def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
+    """ Non-maxima suppression strategy:
+        1) Remove all pixels which power < 0.95
+        2) Repeat until all pixels are zero
+        3) Get the max power point in the map
+        4) Set all points which distance to the max-power point is less than min_dist to zero
+        5) Keep the max_point and go back to 2)
+
+    """
+    candidates = []
+    h, w = heat_map.shape[:2]
+
+    max_points = generate_center_candidate(heat_map, min_power=min_power, min_dist=min_dist)
+
+    if len(max_points) == 0:
+        return candidates
+
+    diff_maps = []
+
+    # estimate the gaussian distribution at each centroid
+    for pnt in max_points:
+        _can, _diff_map = find_gau(pnt, heat_map)
+        candidates.append(_can)
+        diff_maps.append(_diff_map)
+
+    # assign pixel for each heat map
+    assign_map = np.argmin(diff_maps, axis=0)
+    unique, counts = np.unique(assign_map, return_counts=True)
+
+    # calculate scores for each Gaussian distribution based on the number of assigned pixels
+    scores = []
+    for i, can in enumerate(candidates):
+        c_x, c_y, bb_w, bb_h = can[:4]
+        # find the intersection area of bounding box with the image frame
+        x1, y1 = max(0, c_x - bb_w/2), max(0, c_y - bb_h/2)
+        x2, y2 = min(w, c_x + bb_w/2), min(h, c_y + bb_h/2)
+        inter_w = x2 - x1
+        inter_h = y2 - y1
+        scores.append(counts[i] / (inter_w * inter_h))
+
+    candidates, scores = np.array(candidates), np.array(scores)
+
+    candidates = candidates[scores > 0.1]
+
+    # use non-maxima suppression to edge out the duplicated candidates
+    if len(candidates) > 1:
+        tf_boxes = []
+        tf_scores = []
+        for can in candidates:
+            c_x, c_y, bb_w, bb_h, score_x, score_y, prob = can
+
+            x1, x2 = int(c_x - bb_w / 2), int(c_x + bb_w / 2)
+            y1, y2 = int(c_y - bb_h / 2), int(c_y + bb_h / 2)
+
+            tf_boxes.append([y1, x1, y2, x2])
+            tf_scores.append(prob)
+
+        # apply IoU non-maxima suppression
+        selected_ids = tf.image.non_max_suppression(tf_boxes, tf_scores, len(tf_boxes))
+        candidates = candidates[selected_ids.numpy()]
+
+    return candidates
+
+
+def generate_center_candidate(heat_map, min_power, min_dist):
+    """ Generate the center candidates which meet the min power
+        Minimum distance is the minimum centroid distance
+    """
+    tmp_heat_map = heat_map.copy()
+    max_points = []
+    h, w = tmp_heat_map.shape[:2]
+
+    # remove all pixels which power < 0.95
+    tmp_heat_map[tmp_heat_map < min_power] = 0
+
+    while np.sum(tmp_heat_map) > 0:
+        # get the max power point in the map
+        max_y, max_x = np.unravel_index(tmp_heat_map.argmax(), tmp_heat_map.shape)
+
+        # remove points that's in the min distance
+        x_grid, y_grid = np.meshgrid(np.arange(w), np.arange(h))
+        dist_map = np.sqrt((x_grid - np.ones_like(x_grid) * max_x) ** 2 + (y_grid - np.ones_like(y_grid) * max_y) ** 2)
+        tmp_heat_map[dist_map < min_dist] = 0
+
+        # keep the max_point
+        max_points.append((max_y, max_x))
+
+    return max_points
+
+
+def find_gau(pnt, heat_map):
+    """ Find the best gaussian estimation for the point
+        Return:
+            + Gaussian params: (center_x, center_y), (sigma_x, sigma_y), mask
+            + Mask of coverage area
+    """
+    hmap = heat_map.copy()
+
+    # take horizontal and vertical which go through the max point
+    max_y, max_x = pnt
+    h_line = hmap[max_y, :]
+    v_line = hmap[:, max_x]
+
+    # to avoid log(n) = 0
+    h_line[h_line == 1] = 0.9999
+    v_line[v_line == 1] = 0.9999
+    h_line[h_line == 0] = 0.0001
+    v_line[v_line == 0] = 0.0001
+
+    # find sigmas
+    h, w = hmap.shape
+    bb_hs = np.sqrt(abs(-((np.arange(h) - np.ones(h) * max_y) / (h - 1)) ** 2 / (2 * np.log(v_line)))) * 2 * h
+    bb_ws = np.sqrt(abs(-((np.arange(w) - np.ones(w) * max_x) / (w - 1)) ** 2 / (2 * np.log(h_line)))) * 2 * w
+
+    bb_w, bb_w_score = get_mean_median(bb_ws, bins=100)
+    bb_h, bb_h_score = get_mean_median(bb_hs, bins=100)
+
+    # probability is the power at the center
+    prob = heat_map[max_y, max_x]
+
+    # Find the power difference on every pixels, later on this information will be used to assign pixels to
+    # the Gaussian distribution which has least difference
+    _c_x, _bb_w = max_x / w, bb_w / w
+    _c_y, _bb_h = max_y / h, bb_h / h
+    curr_hmap = point_to_heatmap((_c_x, _c_y), (_bb_w, _bb_h), heat_map.shape)
+
+    diff_map = np.abs(curr_hmap - heat_map)
+
+    return [max_x, max_y, bb_w, bb_h, bb_w_score, bb_h_score, prob], diff_map
+
+
+def get_mean_median(vector1d, bins=100):
+    """ Get the most frequent bin from the histogram, then take the mean of values fall in that bin
+    """
+    hist, bin_edges = np.histogram(vector1d, bins=bins, range=(5, len(vector1d)))
+    max_id = np.argmax(hist)
+    score = hist[max_id]
+
+    low_edge = bin_edges[max_id]
+    high_stop = bin_edges[max_id+1]
+
+    edge_len = np.mean(vector1d[(low_edge <= vector1d) & (vector1d < high_stop)])
+    score /= edge_len
+
+    return edge_len, score
+
+
+def draw_bb_on_im(heat_map, vis_im):
+    """ Take boxes from heat map and draw the bounding boxes
+    """
+    boxes = heatmap_to_boxes(heat_map)
+
+    for box in boxes:
+        c_x, c_y, bb_w, bb_h, score_x, score_y, prob = box[:7]
+
+        x1, x2 = int(c_x - bb_w / 2), int(c_x + bb_w / 2)
+        y1, y2 = int(c_y - bb_h / 2), int(c_y + bb_h / 2)
+
+        vis_im = cv2.rectangle(vis_im, (x1, y1), (x2, y2), (0, 0, 255), 1)
+        vis_im = cv2.circle(vis_im, (int(c_x), int(c_y)), 1, (0, 255, 0), 2)
+
+    return vis_im
+
+
+def denorm_im(im):
+    """ Denormalise the image
+    """
+    return np.array(im * 127.5 + 127.5).astype(np.uint8)
+
+
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    heat_map = point_to_heatmap((0.5427, 0.6757), (0.2181, 0.1458), (120, 160))
+    # import matplotlib.pyplot as plt
+    # heat_map = point_to_heatmap((0.5427, 0.6757), (0.2181, 0.1458), (120, 160))
+
+    pass
 

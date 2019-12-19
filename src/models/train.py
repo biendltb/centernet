@@ -7,9 +7,9 @@ from tqdm import tqdm
 
 import tensorflow as tf
 
-from src.models.centernet import Centernet
+from src.models.gauface import GauFace
 from src.utils.path_cvt import get_path_to_vis_ims, get_path_to_ckpts
-from src.datasets.thermal_dataset import load_vis_data
+from src.datasets.face_datasets import load_vis_data
 from src.utils import helpers
 
 # -------> For RTX NVIDIA GPU only
@@ -33,7 +33,7 @@ class ModelTrain:
         dataset_args = {
             'batch_size': batch_size
         }
-        self.model = Centernet(dataset_args=dataset_args, lr=2e-4)
+        self.model = GauFace(dataset_args=dataset_args, lr=2e-4)
 
         self.epochs = epochs
         self.batch_size = batch_size
@@ -51,7 +51,7 @@ class ModelTrain:
 
         self._use_wandb = use_wandb
         if self._use_wandb:
-            wandb.init(project='centernet')
+            wandb.init(project='gauface')
             wandb.config.batch_size = batch_size
 
         print('===== MODEL_SUMMARY =====')
@@ -69,52 +69,46 @@ class ModelTrain:
             print('===> Successfully restored checkpoints at {}'.format(last_ckpt_path))
 
     @tf.function
-    def _train_step(self, thermal_mat, heat_map):
+    def _train_step(self, im, heat_map):
         with tf.GradientTape() as tape:
-            loss, err = self.model.forward_pass(thermal_mat, heat_map)
+            loss = self.model.forward_pass(im, heat_map)
 
         gradients = tape.gradient(loss, self.model.model.trainable_variables)
 
         self.model.optimizer.apply_gradients(
             zip(gradients, self.model.model.trainable_variables))
 
-        return loss, err
+        return loss
 
     def _eval_step(self, thermal_mat, heat_map):
-        loss, err = self.model.forward_pass(thermal_mat, heat_map)
-        return loss, err
+        loss = self.model.forward_pass(thermal_mat, heat_map)
+        return loss
 
     def train(self):
         for epoch in range(self._start_epoch, self.epochs):
             start = time.time()
 
             losses = []
-            errs = []
 
-            for thermal_mat, heat_map in tqdm(self.model.train_ds):
-                step_loss, step_err = self._train_step(thermal_mat, heat_map)
+            for im, heat_map in tqdm(self.model.train_ds):
+                step_loss = self._train_step(im, heat_map)
                 losses.append(step_loss)
-                errs.append(step_err)
 
             # evaluate at the end of each epoch
             eval_losses = []
-            eval_errs = []
             for thermal_mat, heat_map in self.model.eval_ds:
-                loss, err = self._eval_step(thermal_mat, heat_map)
+                loss = self._eval_step(thermal_mat, heat_map)
                 eval_losses.append(loss)
-                eval_errs.append(err)
 
             # logging losses at the end of an epoch
             if self._use_wandb:
                 wandb.log({
                     'loss': np.mean(losses),
-                    'err': np.mean(errs),
-                    'eval_loss': np.mean(eval_losses),
-                    'eval_err': np.mean(eval_errs)
+                    'eval_loss': np.mean(eval_losses)
                 })
 
-            # Produce images for the GIF as we go
-            display.clear_output(wait=True)
+            # # Produce images for the GIF as we go
+            # display.clear_output(wait=True)
             self.generate_and_save_images(
                                      epoch + 1)
 
@@ -130,24 +124,22 @@ class ModelTrain:
         """
         # Notice `training` is set to False.
         # This is so all layers run in inference mode (batchnorm).
-        predictions = self.model.model.predict(self.visualized_eval_images)
+        # predictions = self.model.model.predict(self.visualized_eval_images)
+        predictions = [self.model.model.predict(self.visualized_eval_images[i]) for i in range(len(self.visualized_eval_images))]
 
         plt.figure(figsize=(9, 9))
 
-        for i in range(predictions.shape[0]):
-            h_map = predictions[i, :, :, 0]
-            fig = h_map + self.visualized_eval_images[i, :, :, 0]
+        for i in range(len(predictions)):
+            h_map = predictions[i][0, :, :, 0]
+            vis_im = self.visualized_eval_images[i][0, :, :, :]
 
-            # plot the keypoint on image
-            keypoint, bb_size, _ = helpers.heatmap_to_point(h_map)
-            fig[keypoint] = 0
+            # convert to the normal image
+            vis_im = helpers.denorm_im(vis_im)
 
-            cmap = plt.cm.viridis
-            norm = plt.Normalize(vmin=fig.min(), vmax=fig.max())
-            image = cmap(norm(fig))
+            im = helpers.draw_bb_on_im(h_map, vis_im)
 
             plt.subplot(3, 3, i + 1)
-            plt.imshow(image)
+            plt.imshow(im)
             plt.axis('off')
 
         plt.savefig(os.path.join(get_path_to_vis_ims(), 'image_at_epoch_{:04d}.png'.format(epoch)))
@@ -157,7 +149,7 @@ class ModelTrain:
 if __name__ == '__main__':
     trainer = ModelTrain(
         epochs=500,
-        batch_size=32,
+        batch_size=16,
         use_wandb=True
     )
 

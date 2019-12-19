@@ -23,5 +23,9 @@ def get_path_to_vis_ims():
     return get_path(line_id=3)
 
 
+def get_path_to_FDDB():
+    return get_path(line_id=4)
+
+
 if __name__ == '__main__':
     print(get_path_to_vis_ims())
