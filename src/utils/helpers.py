@@ -179,18 +179,28 @@ def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
     candidates = []
     h, w = heat_map.shape[:2]
 
-    max_points = generate_center_candidate(heat_map, min_power=min_power, min_dist=min_dist)
+    max_points, mp_powers = _generate_center_candidate(heat_map, min_power=min_power, min_dist=min_dist)
 
     if len(max_points) == 0:
         return candidates
 
     diff_maps = []
 
-    # estimate the gaussian distribution at each centroid
-    for pnt in max_points:
-        _can, _diff_map = find_gau(pnt, heat_map)
+    # # estimate the gaussian distribution at each centroid
+    # for pnt in max_points:
+    #     _can, _diff_map, _ = _find_gau(pnt, heat_map)
+    #     candidates.append(_can)
+    #     diff_maps.append(_diff_map)
+
+    while len(max_points) > 0:
+        pnt, _ = max_points.pop(0), mp_powers.pop(0)
+        _can, _diff_map, _curr_hmap = _find_gau(pnt, heat_map)
+        prev_len = len(max_points)
+        max_points, mp_powers = _refine_maxpoints(_curr_hmap, max_points, mp_powers)
+        print('Before: {} | After: {}'.format(prev_len, len(max_points)))
         candidates.append(_can)
         diff_maps.append(_diff_map)
+
 
     # assign pixel for each heat map
     assign_map = np.argmin(diff_maps, axis=0)
@@ -231,12 +241,13 @@ def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
     return candidates
 
 
-def generate_center_candidate(heat_map, min_power, min_dist):
+def _generate_center_candidate(heat_map, min_power, min_dist):
     """ Generate the center candidates which meet the min power
         Minimum distance is the minimum centroid distance
     """
     tmp_heat_map = heat_map.copy()
     max_points = []
+    mp_powers = []
     h, w = tmp_heat_map.shape[:2]
 
     # remove all pixels which power < 0.95
@@ -253,11 +264,12 @@ def generate_center_candidate(heat_map, min_power, min_dist):
 
         # keep the max_point
         max_points.append((max_y, max_x))
+        mp_powers.append(heat_map[max_y, max_x])
 
-    return max_points
+    return max_points, mp_powers
 
 
-def find_gau(pnt, heat_map):
+def _find_gau(pnt, heat_map):
     """ Find the best gaussian estimation for the point
         Return:
             + Gaussian params: (center_x, center_y), (sigma_x, sigma_y), mask
@@ -281,8 +293,8 @@ def find_gau(pnt, heat_map):
     bb_hs = np.sqrt(abs(-((np.arange(h) - np.ones(h) * max_y) / (h - 1)) ** 2 / (2 * np.log(v_line)))) * 2 * h
     bb_ws = np.sqrt(abs(-((np.arange(w) - np.ones(w) * max_x) / (w - 1)) ** 2 / (2 * np.log(h_line)))) * 2 * w
 
-    bb_w, bb_w_score = get_mean_median(bb_ws, bins=100)
-    bb_h, bb_h_score = get_mean_median(bb_hs, bins=100)
+    bb_w, bb_w_score = _get_mean_median(bb_ws, bins=100)
+    bb_h, bb_h_score = _get_mean_median(bb_hs, bins=100)
 
     # probability is the power at the center
     prob = heat_map[max_y, max_x]
@@ -295,10 +307,25 @@ def find_gau(pnt, heat_map):
 
     diff_map = np.abs(curr_hmap - heat_map)
 
-    return [max_x, max_y, bb_w, bb_h, bb_w_score, bb_h_score, prob], diff_map
+    return [max_x, max_y, bb_w, bb_h, bb_w_score, bb_h_score, prob], diff_map, curr_hmap
 
 
-def get_mean_median(vector1d, bins=100):
+def _refine_maxpoints(curr_hmap, max_points, mp_powers):
+    """ Remove proposed key points which is possibly a point of the current distribution
+        If it is, the power should be lower than the power at that point
+    """
+    passed_mp = []
+    passed_mp_powers = []
+    for i, pnt in enumerate(max_points):
+        max_y, max_x = pnt
+        if curr_hmap[pnt] < mp_powers[i]:
+            passed_mp.append(pnt)
+            passed_mp_powers.append(mp_powers[i])
+
+    return passed_mp, passed_mp_powers
+
+
+def _get_mean_median(vector1d, bins=100):
     """ Get the most frequent bin from the histogram, then take the mean of values fall in that bin
     """
     hist, bin_edges = np.histogram(vector1d, bins=bins, range=(5, len(vector1d)))
