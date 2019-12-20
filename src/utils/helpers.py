@@ -186,21 +186,12 @@ def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
 
     diff_maps = []
 
-    # # estimate the gaussian distribution at each centroid
-    # for pnt in max_points:
-    #     _can, _diff_map, _ = _find_gau(pnt, heat_map)
-    #     candidates.append(_can)
-    #     diff_maps.append(_diff_map)
-
     while len(max_points) > 0:
         pnt, _ = max_points.pop(0), mp_powers.pop(0)
         _can, _diff_map, _curr_hmap = _find_gau(pnt, heat_map)
-        prev_len = len(max_points)
         max_points, mp_powers = _refine_maxpoints(_curr_hmap, max_points, mp_powers)
-        print('Before: {} | After: {}'.format(prev_len, len(max_points)))
         candidates.append(_can)
         diff_maps.append(_diff_map)
-
 
     # assign pixel for each heat map
     assign_map = np.argmin(diff_maps, axis=0)
@@ -317,7 +308,6 @@ def _refine_maxpoints(curr_hmap, max_points, mp_powers):
     passed_mp = []
     passed_mp_powers = []
     for i, pnt in enumerate(max_points):
-        max_y, max_x = pnt
         if curr_hmap[pnt] < mp_powers[i]:
             passed_mp.append(pnt)
             passed_mp_powers.append(mp_powers[i])
