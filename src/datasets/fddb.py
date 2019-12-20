@@ -29,6 +29,30 @@ class FDDB:
     def load_by_fold_id(self, fold_id):
         return self._read_ann([fold_id])
 
+    def load_im_paths(self, fold_id: int):
+        """ Load all image paths by fold id
+            File: FDDB-fold-xx.txt
+        """
+        fold_path = 'FDDB-folds/FDDB-fold-{:02d}.txt'.format(fold_id)
+        im_path_template = '{}/originalPics/{}.*'
+        fold_path = os.path.join(self.ds_path, fold_path)
+
+        im_paths = []
+
+        with open(fold_path) as f:
+            lines = f.readlines()
+        lines = [l.strip() for l in lines]
+
+        while len(lines) > 0:
+            im_name = lines.pop(0)
+            path = glob.glob(im_path_template.format(self.ds_path, im_name))
+            if len(path) != 1:
+                print('ERROR: None or more than an image found in {}'.format(path))
+                break
+            im_paths.append(path[0])
+
+        return im_paths
+
     def _read_ann(self, fold_ids: List):
         """ Load all images paths and annotations
         The corresponding annotations are included in the file

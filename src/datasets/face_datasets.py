@@ -5,32 +5,16 @@ import tensorflow as tf
 import numpy as np
 
 from src.datasets.fddb import FDDB
-
-IM_SHAPE = (224, 224, 3)
+from src.utils import helpers
 
 # flag to control the auto tune
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-def _load_im(im_path, hmap):
-    """ Load image from image path and resize
-    """
-    # load im
-    im = tf.io.read_file(im_path)
-    im = tf.image.decode_png(im, channels=3)
-    im = tf.image.resize(im, IM_SHAPE[:2])
-    im = (im - 127.5) / 127.5
-
-    if hmap is not None:
-        hmap = hmap[:, :, tf.newaxis]
-
-    return im, hmap
-
-
 def create_tf_ds(data, batch_size=1):
     im_cnt = len(data[0])
     ds = tf.data.Dataset.from_tensor_slices(data)
-    ds = ds.map(_load_im, num_parallel_calls=AUTOTUNE)
+    ds = ds.map(helpers.load_im, num_parallel_calls=AUTOTUNE)
     ds = ds.shuffle(buffer_size=im_cnt)
     ds = ds.batch(batch_size)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
@@ -64,7 +48,7 @@ def load_vis_data(n=9):
     # load image
     vis_ims = []
     for im_path in vis_im_paths:
-        im, _ = _load_im(im_path, None)
+        im, _ = helpers.load_im(im_path, None)
         # use batch_size=1 for visualisation
         im = im[tf.newaxis, :, :, :]
         vis_ims.append(im)

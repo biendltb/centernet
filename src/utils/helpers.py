@@ -229,6 +229,10 @@ def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
         selected_ids = tf.image.non_max_suppression(tf_boxes, tf_scores, len(tf_boxes))
         candidates = candidates[selected_ids.numpy()]
 
+
+    # parse bounding box coordinates to ratios
+    candidates = _parse_coordinates(candidates)
+
     return candidates
 
 
@@ -331,13 +335,31 @@ def _get_mean_median(vector1d, bins=100):
     return edge_len, score
 
 
+def _parse_coordinates(candidates, im_shape=(224, 224, 3)):
+    """ Parse coordinates of the bounding boxes to ratio
+    """
+    outputs = []
+
+    h, w = im_shape[:2]
+
+    for _can in candidates:
+        c_x, c_y, bb_w, bb_h, score_x, score_y, prob = _can
+
+        outputs.append([c_x/w, c_y/h, bb_w/w, bb_h/h, score_x, score_y, prob])
+
+    return outputs
+
+
 def draw_bb_on_im(heat_map, vis_im):
     """ Take boxes from heat map and draw the bounding boxes
     """
     boxes = heatmap_to_boxes(heat_map)
 
+    h, w = vis_im.shape[:2]
+
     for box in boxes:
         c_x, c_y, bb_w, bb_h, score_x, score_y, prob = box[:7]
+        c_x, c_y, bb_w, bb_h = c_x * w, c_y * h, bb_w * w, bb_h * h
 
         x1, x2 = int(c_x - bb_w / 2), int(c_x + bb_w / 2)
         y1, y2 = int(c_y - bb_h / 2), int(c_y + bb_h / 2)
@@ -352,6 +374,32 @@ def denorm_im(im):
     """ Denormalise the image
     """
     return np.array(im * 127.5 + 127.5).astype(np.uint8)
+
+
+def load_im(im_path, hmap):
+    """ Load image from image path and resize
+    """
+    im, _ = im_preprocess(im_path)
+
+    if hmap is not None:
+        hmap = hmap[:, :, tf.newaxis]
+
+    return im, hmap
+
+
+def im_preprocess(im_path):
+    IM_SHAPE = (224, 224)
+
+    # load im
+    im = tf.io.read_file(im_path)
+    im = tf.image.decode_png(im, channels=3)
+
+    original_im = im
+
+    im = tf.image.resize(im, IM_SHAPE[:2])
+    im = (im - 127.5) / 127.5
+
+    return im, original_im.numpy()
 
 
 if __name__ == '__main__':
