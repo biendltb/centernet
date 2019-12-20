@@ -11,7 +11,7 @@ NUM_CLASS = 1
 def _conv(x, filters, kernel_size, strides=1):
     result = tf.keras.Sequential()
     result.add(
-        tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
+        tf.keras.layers.Conv2D(filters=filters, kernel_size=11, strides=strides,
                                padding='same', use_bias=False))
     result.add(tf.keras.layers.BatchNormalization())
     result.add(tf.keras.layers.ReLU())
@@ -36,29 +36,6 @@ def _max_pooling(x, pool_size, strides):
 
 def _avg_pooling(x, pool_size, strides):
     return tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=strides, padding='same')(x)
-
-
-def _basic_block(x, filters, kernel_size=3, strides=1):
-    input_filters = x.shape[3]
-
-    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1,
-                                       padding='same', use_bias=False)
-
-    # if input and the block have different number of filters, use one more conv layer to equalise it
-    residual = tf.cond(tf.equal(input_filters, filters),
-                       lambda: x,
-                       lambda: _tmp_conv(x))
-
-    x = _conv(x, filters=filters, kernel_size=kernel_size)
-
-    x = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
-                               padding='same', use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-
-    x += residual
-    x = tf.keras.layers.ReLU()(x)
-
-    return x
 
 
 def _basic_block(x, filters, kernel_size=3, strides=1):
@@ -223,8 +200,8 @@ def heatmap_to_point(heatmaps_tensor, batch_size=1):
     return out
 
 
-def dla_lite_net(mode='train'):
-    base_filters = 8
+def dla_lite_net():
+    base_filters = 4
     # channel last; None -> grayscale or color images
     inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, name='input')
 
@@ -263,11 +240,7 @@ def dla_lite_net(mode='train'):
     keypoints = _conv(features, NUM_CLASS, 3)
     # size = _conv(features, 2, 3, 1)
 
-    if mode == 'train':
-        model = tf.keras.Model(inputs=inputs, outputs=keypoints)
-    else:
-        out = tf.keras.layers.Lambda(lambda hmap: heatmap_to_point(hmap), name='thermal_output')(keypoints)
-        model = tf.keras.Model(inputs=inputs, outputs=out)
+    model = tf.keras.Model(inputs=inputs, outputs=keypoints)
 
     return model
 
