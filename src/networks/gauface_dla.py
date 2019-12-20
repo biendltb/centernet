@@ -8,10 +8,10 @@ INPUT_SHAPE = (224, 224, 3)
 NUM_CLASS = 1
 
 
-def _conv(x, filters, kernel_size, strides=1):
+def _conv(x, filters, kernel_size=5, strides=1):
     result = tf.keras.Sequential()
     result.add(
-        tf.keras.layers.Conv2D(filters=filters, kernel_size=11, strides=strides,
+        tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
                                padding='same', use_bias=False))
     result.add(tf.keras.layers.BatchNormalization())
     result.add(tf.keras.layers.ReLU())
@@ -38,10 +38,10 @@ def _avg_pooling(x, pool_size, strides):
     return tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=strides, padding='same')(x)
 
 
-def _basic_block(x, filters, kernel_size=3, strides=1):
+def _basic_block(x, filters, kernel_size=5, strides=1):
     input_filters = x.shape[3]
 
-    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1,
+    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=5, strides=1,
                                        padding='same', use_bias=False)
 
     # if input and the block have different number of filters, use one more conv layer to equalise it
@@ -205,9 +205,9 @@ def dla_lite_net():
     # channel last; None -> grayscale or color images
     inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, name='input')
 
-    x = _conv(inputs, base_filters, 7)
-    stage1 = _conv(x, base_filters * 2, 3)
-    stage2 = _conv(stage1, base_filters * 2, 3, strides=2)  # 1/2
+    x = _conv(inputs, base_filters, 15)
+    stage1 = _conv(x, base_filters * 2, 11)
+    stage2 = _conv(stage1, base_filters * 2, 11, strides=2)  # 1/2
 
     # stage 3
     dla_stage3 = _dla_generator(stage2, base_filters * 4, levels=1)
@@ -216,23 +216,23 @@ def dla_lite_net():
     # stage 4
     dla_stage4 = _dla_generator(dla_stage3, base_filters * 8, levels=2)
     dla_stage4 = _max_pooling(dla_stage4, 2, 2)  # 1/8
-    residual = _conv(dla_stage3, base_filters * 8, 1)
+    residual = _conv(dla_stage3, base_filters * 8)
     residual = _avg_pooling(residual, 2, 2)  # 1/8
     dla_stage4 += residual
 
-    dla_stage4 = _conv(dla_stage4, base_filters * 16, 1)
+    dla_stage4 = _conv(dla_stage4, base_filters * 16)
     dla_stage4_3 = _dconv(dla_stage4, base_filters * 8, 4, 2)  # 1/4
 
-    dla_stage3 = _conv(dla_stage3, base_filters * 8, 1)
-    dla_stage3_3 = _conv(dla_stage3 + dla_stage4_3, base_filters * 8, 3)
+    dla_stage3 = _conv(dla_stage3, base_filters * 8)
+    dla_stage3_3 = _conv(dla_stage3 + dla_stage4_3, base_filters * 8)
     dla_stage3_3 = _dconv(dla_stage3_3, base_filters * 4, 4, 2)  # 1/2
 
-    stage2 = _conv(stage2, base_filters * 4, 1)
-    stage2 = _conv(stage2 + dla_stage3_3, base_filters * 4, 1)
+    stage2 = _conv(stage2, base_filters * 4, 11)
+    stage2 = _conv(stage2 + dla_stage3_3, base_filters * 4, 11)
     stage2 = _dconv(stage2, base_filters * 2, 4, 2)
 
-    stage1 = _conv(stage1, base_filters * 2, 1)
-    stage1 = _conv(stage1 + stage2, base_filters * 2, 1)
+    stage1 = _conv(stage1, base_filters * 2, 15)
+    stage1 = _conv(stage1 + stage2, base_filters * 2, 15)
 
     features = _conv(stage1, base_filters * 1, 1)
 
