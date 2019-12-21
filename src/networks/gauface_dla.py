@@ -8,7 +8,7 @@ INPUT_SHAPE = (224, 224, 3)
 NUM_CLASS = 1
 
 
-def _conv(x, filters, kernel_size=5, strides=1):
+def _conv(x, filters, kernel_size=7, strides=1):
     result = tf.keras.Sequential()
     result.add(
         tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,
@@ -38,10 +38,10 @@ def _avg_pooling(x, pool_size, strides):
     return tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=strides, padding='same')(x)
 
 
-def _basic_block(x, filters, kernel_size=5, strides=1):
+def _basic_block(x, filters, kernel_size=7, strides=1):
     input_filters = x.shape[3]
 
-    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=5, strides=1,
+    _tmp_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=1,
                                        padding='same', use_bias=False)
 
     # if input and the block have different number of filters, use one more conv layer to equalise it
@@ -207,7 +207,7 @@ def dla_lite_net():
 
     x = _conv(inputs, base_filters, 15)
     stage1 = _conv(x, base_filters * 2, 11)
-    stage2 = _conv(stage1, base_filters * 2, 11, strides=2)  # 1/2
+    stage2 = _conv(stage1, base_filters * 2, strides=2)  # 1/2
 
     # stage 3
     dla_stage3 = _dla_generator(stage2, base_filters * 4, levels=1)
@@ -227,14 +227,14 @@ def dla_lite_net():
     dla_stage3_3 = _conv(dla_stage3 + dla_stage4_3, base_filters * 8)
     dla_stage3_3 = _dconv(dla_stage3_3, base_filters * 4, 4, 2)  # 1/2
 
-    stage2 = _conv(stage2, base_filters * 4, 11)
-    stage2 = _conv(stage2 + dla_stage3_3, base_filters * 4, 11)
+    stage2 = _conv(stage2, base_filters * 4)
+    stage2 = _conv(stage2 + dla_stage3_3, base_filters * 4)
     stage2 = _dconv(stage2, base_filters * 2, 4, 2)
 
-    stage1 = _conv(stage1, base_filters * 2, 15)
-    stage1 = _conv(stage1 + stage2, base_filters * 2, 15)
+    stage1 = _conv(stage1, base_filters * 2)
+    stage1 = _conv(stage1 + stage2, base_filters * 2)
 
-    features = _conv(stage1, base_filters * 1, 1)
+    features = _conv(stage1, base_filters * 1)
 
     # separate to multiple output heads
     keypoints = _conv(features, NUM_CLASS, 3)
