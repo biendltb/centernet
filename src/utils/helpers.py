@@ -60,6 +60,9 @@ def point_to_heatmap(point, bb_size, map_shape):
     sigma_x = bb_w/2
     sigma_y = bb_h/2
 
+    if sigma_x <= 0 or sigma_y <=0:
+        return np.zeros(map_shape)
+
     x_grid, y_grid = np.meshgrid(np.arange(w)/(w-1), np.arange(h)/(h-1))
 
     heat_map = np.exp(
