@@ -27,5 +27,9 @@ def get_path_to_FDDB():
     return get_path(line_id=4)
 
 
+def get_path_to_WIDERFace():
+    return get_path(line_id=5)
+
+
 if __name__ == '__main__':
     print(get_path_to_vis_ims())

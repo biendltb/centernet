@@ -399,7 +399,7 @@ def im_preprocess(im_path):
     im = tf.image.resize(im, IM_SHAPE[:2])
     im = (im - 127.5) / 127.5
 
-    return im, original_im.numpy()
+    return im, original_im
 
 
 if __name__ == '__main__':
