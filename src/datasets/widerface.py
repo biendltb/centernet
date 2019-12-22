@@ -26,6 +26,8 @@ class WIDER:
         train_ims, train_hmaps = self._read_ann(self.train_ann_path, self.train_ims_dir)
         eval_ims, eval_hmaps = self._read_ann(self.val_ann_path, self.val_ims_dir)
 
+        print('Train data: {}\nValidation data: {}'.format(len(train_ims), len(eval_ims)))
+
         return (train_ims, train_hmaps), (eval_ims, eval_hmaps)
 
     def load_val_ds(self):
@@ -52,6 +54,7 @@ class WIDER:
 
         im_paths = []
         heat_maps = []
+
         with open(ann_path, 'r') as f:
             lines = f.readlines()
 
@@ -69,6 +72,12 @@ class WIDER:
             if bb_cnt == 0:
                 bb_cnt = 1
 
+            # train only with images which have <= 5 faces per image
+            if bb_cnt > 5:
+                for i in range(bb_cnt):
+                    lines.pop(0)
+                continue
+
             for i in range(bb_cnt):
                 rect_params = lines.pop(0)
                 c_x, c_y, bb_w, bb_h = [float(x) for x in rect_params.split()]
@@ -83,3 +92,10 @@ class WIDER:
             heat_maps.append(final_hmap)
 
         return im_paths, heat_maps
+
+
+if __name__ == '__main__':
+    wider = WIDER()
+    wider.load_ds()
+
+    # 12 bounding boxes per image
