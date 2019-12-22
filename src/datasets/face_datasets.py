@@ -35,6 +35,8 @@ def load_ds(batch_size=1):
     # train_data, eval_data = wider_face.load_ds()
     train_data, _ = wider_face.load_ds()
 
+    print('TRAIN DATA: {} | VALIDATION DATA: {}'.format(len(train_data[0]), len(eval_data[0])))
+
     train_ds = create_tf_ds(train_data, batch_size=batch_size)
     eval_ds = create_tf_ds(eval_data, batch_size=batch_size)
 

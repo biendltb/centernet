@@ -26,7 +26,7 @@ class WIDER:
         train_ims, train_hmaps = self._read_ann(self.train_ann_path, self.train_ims_dir)
         eval_ims, eval_hmaps = self._read_ann(self.val_ann_path, self.val_ims_dir)
 
-        print('Train data: {}\nValidation data: {}'.format(len(train_ims), len(eval_ims)))
+        print('WIDER FACE DATASET: Train data: {}\nValidation data: {}'.format(len(train_ims), len(eval_ims)))
 
         return (train_ims, train_hmaps), (eval_ims, eval_hmaps)
 
