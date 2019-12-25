@@ -156,7 +156,8 @@ def tf_apply_trans_codes(im, trans_code):
         _pad_patch = tf.image.flip_up_down(_pad_patch)
         ret_im = tf.concat([ret_im, _pad_patch], axis=0)
 
-    # ret_im = tf.cast(ret_im, tf.uint8)
+    # adjust the brightness
+    ret_im = tf.image.random_brightness(ret_im, max_delta=0.2)
 
     return ret_im
 
