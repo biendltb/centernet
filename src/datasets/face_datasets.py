@@ -20,6 +20,8 @@ def create_tf_ds(data, batch_size=1):
     ds = ds.batch(batch_size)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
 
+    print('Create dataset with {} elements'.format(im_cnt))
+
     return ds
 
 
@@ -27,15 +29,15 @@ def load_ds(batch_size=1):
     # FDDB
     fddb = FDDB(eval_set=9)
     # load data and labels as tuples
-    # train_data, eval_data = fddb.load_ds()
-    _, eval_data = fddb.load_ds()
+    train_data, eval_data = fddb.load_ds(train_augm=True)
+    # _, eval_data = fddb.load_ds()
 
     # WIDER FACE DATASET
-    wider_face = WIDER()
+    # wider_face = WIDER()
     # train_data, eval_data = wider_face.load_ds()
-    train_data, _ = wider_face.load_ds()
+    # train_data, _ = wider_face.load_ds()
 
-    print('TRAIN DATA: {} | VALIDATION DATA: {}'.format(len(train_data[0]), len(eval_data[0])))
+    print('====== TRAIN DATA: {} | VALIDATION DATA: {} ======'.format(len(train_data[0]), len(eval_data[0])))
 
     train_ds = create_tf_ds(train_data, batch_size=batch_size)
     eval_ds = create_tf_ds(eval_data, batch_size=batch_size)
@@ -71,9 +73,20 @@ def load_vis_data(n=9):
 
 
 if __name__ == '__main__':
-    train_ds, eval_ds = load_ds()
-    for im, label in train_ds:
-        print(im.shape)
+    # train_ds, eval_ds = load_ds()
+    # for im, label in train_ds:
+    #     print(im.shape)
+
+    # TEST dataset
+    fddb = FDDB(eval_set=9)
+    train_data, eval_data = fddb.load_ds(train_augm=True)
+    for im, hmap in zip(*train_data):
+        # test_im, _ = helpers.load_im(im_path, hmap, trans_code)
+        # test_im = tf.cast((im * 127.5 + 127.5), np.uint8)
+        hmap_im = helpers.cvt_hmap_to_im(hmap)
+        vis_im = tf.concat([im, hmap_im], axis=1)
+        pass
+
 
     # vis_ims, hmaps = load_vis_data(n=9)
 

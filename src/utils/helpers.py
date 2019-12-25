@@ -3,6 +3,9 @@ import h5py
 from scipy.ndimage.filters import gaussian_filter
 import tensorflow as tf
 import cv2
+import matplotlib.pyplot as plt
+
+from src.datasets import image_transformer
 
 
 def thermal_preprocess(thermal_mat):
@@ -379,10 +382,15 @@ def denorm_im(im):
     return np.array(im * 127.5 + 127.5).astype(np.uint8)
 
 
-def load_im(im_path, hmap):
+def load_im(im, hmap):
     """ Load image from image path and resize
     """
-    im, _ = im_preprocess(im_path)
+    # im = read_im_from_path(im_path)
+
+    # apply transformations
+    # im = image_transformer.tf_apply_trans_codes(im, trans_code)
+
+    im = im_preprocess(im)
 
     if hmap is not None:
         hmap = hmap[:, :, tf.newaxis]
@@ -390,20 +398,31 @@ def load_im(im_path, hmap):
     return im, hmap
 
 
-def im_preprocess(im_path):
-    IM_SHAPE = (224, 224)
-
+def read_im_from_path(im_path):
     # load im
     im = tf.io.read_file(im_path)
     im = tf.image.decode_png(im, channels=3)
 
-    original_im = im
+    return im
 
-    im = tf.image.resize(im, IM_SHAPE[:2])
+
+def im_preprocess(im):
+    # IM_SHAPE = (224, 224)
+    # im = tf.image.resize(im, IM_SHAPE[:2])
+    im = tf.cast(im, tf.float32)
     im = (im - 127.5) / 127.5
 
-    return im, original_im
+    return im
 
+
+def cvt_hmap_to_im(hmap):
+    cmap = plt.cm.viridis
+    norm = plt.Normalize(vmin=hmap.min(), vmax=hmap.max())
+    im = cmap(norm(hmap))
+
+    im = (im[:, :, :3] * 255).astype(np.uint8)
+
+    return im
 
 if __name__ == '__main__':
     # import matplotlib.pyplot as plt
