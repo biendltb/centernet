@@ -1,12 +1,12 @@
 from typing import Callable, Dict
 import tensorflow as tf
 
-from src.networks import gauface_dla
+from src.networks import gauface_dla, gauface_vnet
 from src.datasets.face_datasets import load_ds
 
 
 class GauFace:
-    def __init__(self, dataset_fn: Callable = load_ds, network_fn: Callable = gauface_dla.dla_lite_net,
+    def __init__(self, dataset_fn: Callable = load_ds, network_fn: Callable = gauface_vnet.resnext_net(),
                  lr: float = 1e-4,
                  dataset_args: Dict = None):
 
