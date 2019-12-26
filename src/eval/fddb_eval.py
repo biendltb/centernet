@@ -70,16 +70,6 @@ def save_model(ckpt_path, save_path):
     model.save(save_path, save_format='tf')
 
 
-def cvt_hmap_to_im(hmap):
-    cmap = plt.cm.viridis
-    norm = plt.Normalize(vmin=hmap.min(), vmax=hmap.max())
-    im = cmap(norm(hmap))
-
-    im = (im[:, :, :3] * 255).astype(np.uint8)
-
-    return im
-
-
 def webcam_eval(ckpt_path):
     # load model
     model = gauface_dla.dla_lite_net()
@@ -119,7 +109,7 @@ def webcam_eval(ckpt_path):
             vis_im = helpers.draw_bb_on_im(hmap, frame)
 
             # visualization
-            vis_hm = cvt_hmap_to_im(hmap)
+            vis_hm = helpers.cvt_hmap_to_im(hmap)
             vis_hm = cv2.resize(vis_hm[:, :, ::-1], (int(vis_im.shape[1]/5), int(vis_im.shape[0]/5)))
             vis_im[:vis_hm.shape[0], :vis_hm.shape[1], :] = vis_hm
             cv2.imshow('test', vis_im)
@@ -136,7 +126,8 @@ def webcam_eval(ckpt_path):
 if __name__ == '__main__':
     fold_id = 9
     # ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/gauface/model_8/ckpts/ckpt-7'
-    ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/gauface/model_12/ckpts/ckpt-10'
+    # version kernel_7 top models: 12_10, 18_10
+    ckpt_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/gauface/model_18/ckpts/ckpt-10'
 
     # ann_export_path = '/media/biendltb/6e1ef38e-db2f-4eda-ad11-31252df3b87b/data/model_gym/gauface/model_8/fold-{:02d}-annotatedList.txt'.format(fold_id)
     # run_evaluation_export(fold_id, ckpt_path, ann_export_path)

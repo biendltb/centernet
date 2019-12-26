@@ -79,10 +79,8 @@ class FDDB:
         ann_path_template = 'FDDB-folds_rect/FDDB-fold-{:02d}-rectangleList.txt'
         im_path_template = '{}/originalPics/{}.*'
 
-        im_paths = []
         ims = []
         heat_maps = []
-        trans_codes = []
         for id in fold_ids:
             ann_path = os.path.join(self.ds_path, ann_path_template.format(id + 1))
             with open(ann_path, 'r') as f:
@@ -110,26 +108,21 @@ class FDDB:
 
                 origin_hmap = self._gen_heat_map(bb_list)
 
-                # im_paths.append(im_path)
                 im = helpers.read_im_from_path(im_path)
                 im = cv2.resize(np.array(im), (IM_SHAPE[1], IM_SHAPE[0]))
                 ims.append(im)
                 heat_maps.append(origin_hmap)
-                # trans_codes.append(self.trans_gen.get_no_transform_code())
 
                 if augmentation:
                     # transform the image for data augmentation
                     gen_trans_code, new_bb_list = self.trans_gen.transformation_gen(bb_list)
                     trans_hmap = self._gen_heat_map(new_bb_list)
 
-                    # im_paths.append(im_path)
                     trans_im = tf_apply_trans_codes(im, gen_trans_code)
                     trans_im = cv2.resize(np.array(trans_im), (IM_SHAPE[1], IM_SHAPE[0]))
                     ims.append(trans_im)
                     heat_maps.append(trans_hmap)
-                    # trans_codes.append(gen_trans_code)
 
-        # return im_paths[:100], heat_maps[:100], trans_codes[:100]
         return ims, heat_maps
 
     def _gen_heat_map(self, bbox_list):
