@@ -1,12 +1,12 @@
 import numpy as np
 
-from src.networks import dla
+from src.networks import gauface_dla
 
 
 def main():
-    _input = np.random.rand(1, 120, 160, 1).astype(np.float32)
+    _input = np.random.rand(32, 224, 224, 3).astype(np.float32)
 
-    model = dla.dla_lite_net(mode='eval')
+    model = gauface_dla.dla_lite_net()
 
     outs = model(_input)
 
