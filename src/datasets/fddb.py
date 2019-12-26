@@ -7,7 +7,7 @@ import cv2
 from src.utils import path_cvt, helpers
 from src.datasets.image_transformer import TransformerGenerator, tf_apply_trans_codes
 
-IM_SHAPE = (224, 224)
+IM_SHAPE = (320, 320)
 
 class FDDB:
     def __init__(self, eval_set=9, im_shape=(224, 224, 3)):
