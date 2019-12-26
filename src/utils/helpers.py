@@ -387,9 +387,6 @@ def load_im(im, hmap):
     """
     # im = read_im_from_path(im_path)
 
-    # apply transformations
-    # im = image_transformer.tf_apply_trans_codes(im, trans_code)
-
     im = im_preprocess(im)
 
     if hmap is not None:
