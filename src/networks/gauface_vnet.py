@@ -24,7 +24,18 @@ def _conv_no_relu(x, filters, kernel_size=7, strides=1):
     return result(x)
 
 
-def resnext_block(x, filters, cardinality=16, strides=4):
+def _dconv(x, filters, kernel_size, strides=1):
+    result = tf.keras.Sequential()
+    result.add(
+        tf.keras.layers.Conv2DTranspose(filters=filters, kernel_size=kernel_size, strides=strides,
+                                        padding='same', use_bias=False))
+    result.add(tf.keras.layers.BatchNormalization())
+    result.add(tf.keras.layers.ReLU())
+
+    return result(x)
+
+
+def resnext_block(x, filters, cardinality=8, strides=4):
     channel_split = tf.keras.layers.Lambda(lambda _x: tf.split(_x, cardinality, axis=-1))
 
     splits = channel_split(x)
@@ -32,7 +43,7 @@ def resnext_block(x, filters, cardinality=16, strides=4):
     agg_out = None
     for s in splits:
         _out = _conv(s, int(filters/cardinality), kernel_size=1, strides=strides)
-        _out = _conv(_out, int(filters/cardinality), kernel_size=3)
+        _out = _conv(_out, int(filters/cardinality), kernel_size=7)
         _out = _conv_no_relu(_out, filters, kernel_size=1)
 
         if agg_out is None:
@@ -42,7 +53,7 @@ def resnext_block(x, filters, cardinality=16, strides=4):
     
     # downsample x
     x = tf.keras.layers.AveragePooling2D(pool_size=strides, strides=strides)(x)
-    x = _conv_no_relu(x, filters, kernel_size=3)
+    x = _conv_no_relu(x, filters, kernel_size=7)
 
     x = tf.keras.layers.ReLU()(x + agg_out)
 
@@ -50,10 +61,11 @@ def resnext_block(x, filters, cardinality=16, strides=4):
 
 
 def up_block(x, x_down, filters, up_scale=4):
-    x_down = _conv_no_relu(x_down, filters, kernel_size=3)
+    x_down = _conv_no_relu(x_down, filters, kernel_size=7)
 
     x = tf.keras.layers.UpSampling2D(up_scale)(x)
-    x = _conv_no_relu(x, filters, kernel_size=3)
+    x = _conv_no_relu(x, filters, kernel_size=7)
+    # x = _dconv(x, filters, kernel_size=up_scale, strides=up_scale)
 
     x = tf.keras.layers.ReLU()(x + x_down)
 
@@ -61,24 +73,32 @@ def up_block(x, x_down, filters, up_scale=4):
 
 
 def resnext_net():
-    base_filters = 16
+    base_filters = 8
     inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, name='input')
 
     x = _conv(inputs, base_filters, 15)
 
-    stage_1 = resnext_block(x, base_filters * 2)
+    stage_1 = resnext_block(x, base_filters * 2, strides=4)
 
     stage_2 = resnext_block(stage_1, base_filters * 4, strides=4)
 
     stage_3 = resnext_block(stage_2, base_filters * 8, strides=4)
 
+    # stage_4 = resnext_block(stage_3, base_filters * 8, strides=2)
+    #
+    # stage_5 = resnext_block(stage_4, base_filters * 8, strides=2)
+
     bottom = _conv(stage_3, base_filters * 8, kernel_size=1)
+
+    # up_5 = up_block(bottom, stage_4, base_filters * 4, up_scale=2)
+    #
+    # up_4 = up_block(up_5, stage_3, base_filters * 4, up_scale=2)
 
     up_3 = up_block(bottom, stage_2, base_filters * 4, up_scale=4)
 
     up_2 = up_block(up_3, stage_1, base_filters * 2, up_scale=4)
 
-    up_1 = up_block(up_2, x, base_filters)
+    up_1 = up_block(up_2, x, base_filters, up_scale=4)
 
     features = _conv(up_1, base_filters)
 

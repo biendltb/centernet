@@ -127,7 +127,7 @@ class ModelTrain:
         # predictions = self.model.model.predict(self.visualized_eval_images)
         predictions = [self.model.model.predict(self.visualized_eval_images[i]) for i in range(len(self.visualized_eval_images))]
 
-        plt.figure(figsize=(9, 9))
+        plt.figure(figsize=(12, 6))
 
         for i in range(len(predictions)):
             h_map = predictions[i][0, :, :, 0]
@@ -136,7 +136,7 @@ class ModelTrain:
             # convert to the normal image
             vis_im = helpers.denorm_im(vis_im)
 
-            im = helpers.draw_bb_on_im(h_map, vis_im)
+            im = helpers.draw_bb_on_im(h_map, vis_im, add_hmap=True)
 
             plt.subplot(3, 3, i + 1)
             plt.imshow(im)
@@ -148,8 +148,8 @@ class ModelTrain:
 
 if __name__ == '__main__':
     trainer = ModelTrain(
-        epochs=500,
-        batch_size=16,
+        epochs=200,
+        batch_size=8,
         use_wandb=True
     )
 

@@ -237,7 +237,7 @@ def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
 
 
     # parse bounding box coordinates to ratios
-    candidates = _parse_coordinates(candidates)
+    candidates = _parse_coordinates(candidates, heat_map.shape)
 
     return candidates
 
@@ -328,7 +328,8 @@ def _refine_maxpoints(curr_hmap, max_points, mp_powers):
 def _get_mean_median(vector1d, bins=100):
     """ Get the most frequent bin from the histogram, then take the mean of values fall in that bin
     """
-    hist, bin_edges = np.histogram(vector1d, bins=bins, range=(5, len(vector1d)))
+    # allow the size of the bounding box to be more than 100% of the image size
+    hist, bin_edges = np.histogram(vector1d, bins=bins, range=(5, int(len(vector1d)*1.1)))
     max_id = np.argmax(hist)
     score = hist[max_id]
 
@@ -341,7 +342,7 @@ def _get_mean_median(vector1d, bins=100):
     return edge_len, score
 
 
-def _parse_coordinates(candidates, im_shape=(224, 224, 3)):
+def _parse_coordinates(candidates, im_shape):
     """ Parse coordinates of the bounding boxes to ratio
     """
     outputs = []
@@ -356,7 +357,7 @@ def _parse_coordinates(candidates, im_shape=(224, 224, 3)):
     return outputs
 
 
-def draw_bb_on_im(heat_map, vis_im):
+def draw_bb_on_im(heat_map, vis_im, add_hmap=False):
     """ Take boxes from heat map and draw the bounding boxes
     """
     boxes = heatmap_to_boxes(heat_map)
@@ -373,6 +374,11 @@ def draw_bb_on_im(heat_map, vis_im):
         vis_im = cv2.rectangle(vis_im, (x1, y1), (x2, y2), (0, 0, 255), 2)
         vis_im = cv2.circle(vis_im, (int(c_x), int(c_y)), 1, (0, 255, 0), 2)
 
+    if add_hmap:
+        # add heat map to the visualisation image
+        hmap_im = cvt_hmap_to_im(heat_map)
+        vis_im = tf.concat([vis_im, hmap_im], axis=1)
+
     return vis_im
 
 
@@ -383,9 +389,21 @@ def denorm_im(im):
 
 
 def load_im(im, hmap):
+    """ Load image and pre-process
+    """
+
+    im = im_preprocess(im)
+
+    if hmap is not None:
+        hmap = hmap[:, :, tf.newaxis]
+
+    return im, hmap
+
+
+def load_im_from_path(im_path, hmap):
     """ Load image from image path and resize
     """
-    # im = read_im_from_path(im_path)
+    im = read_im_from_path(im_path)
 
     im = im_preprocess(im)
 
@@ -399,6 +417,7 @@ def read_im_from_path(im_path):
     # load im
     im = tf.io.read_file(im_path)
     im = tf.image.decode_png(im, channels=3)
+    im = tf.image.resize(im, (320, 320))
 
     return im
 
@@ -420,6 +439,7 @@ def cvt_hmap_to_im(hmap):
     im = (im[:, :, :3] * 255).astype(np.uint8)
 
     return im
+
 
 if __name__ == '__main__':
     # import matplotlib.pyplot as plt
