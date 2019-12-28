@@ -9,8 +9,9 @@ from src.datasets.image_transformer import TransformerGenerator, tf_apply_trans_
 
 IM_SHAPE = (320, 320)
 
+
 class FDDB:
-    def __init__(self, eval_set=9, im_shape=(224, 224, 3)):
+    def __init__(self, eval_set=9, im_shape=IM_SHAPE):
         """
         Load dataset
         :param eval_set: set id for evaluation, the rest used for training (0 -> 9)
@@ -21,18 +22,22 @@ class FDDB:
 
         self.trans_gen = TransformerGenerator()
 
-    def load_ds(self, train_augm=True):
+    def load_ds(self, train_augm=True, use_path=False):
+        if use_path is True and train_augm is True:
+            print('ERROR: Cannot use path for image augmentation.')
+            return None
+
         # divide train/eval set
         eval = [self.eval_set]
         train = list(set(np.arange(10)) - set(eval))
 
-        train_ims, train_hmaps = self._read_ann(train, augmentation=train_augm)
-        eval_ims, eval_hmaps = self._read_ann(eval, augmentation=False)
+        train_ims, train_hmaps = self._read_ann(train, augmentation=train_augm, use_path=use_path)
+        eval_ims, eval_hmaps = self._read_ann(eval, augmentation=False, use_path=use_path)
 
         return (train_ims, train_hmaps), (eval_ims, eval_hmaps)
 
     def load_by_fold_id(self, fold_id, augmentation=False):
-        return self._read_ann([fold_id], augmentation=augmentation)
+        return self._read_ann([fold_id], augmentation=augmentation, use_path=True)
 
     def load_im_paths(self, fold_id: int):
         """ Load all image paths by fold id
@@ -58,7 +63,7 @@ class FDDB:
 
         return im_paths
 
-    def _read_ann(self, fold_ids: List, augmentation):
+    def _read_ann(self, fold_ids: List, augmentation, use_path):
         """ Load all images paths and annotations
         The corresponding annotations are included in the file
         "FDDB-fold-xx-rectangleList.txt" in the following
@@ -80,6 +85,7 @@ class FDDB:
         im_path_template = '{}/originalPics/{}.*'
 
         ims = []
+        im_paths = []
         heat_maps = []
         for id in fold_ids:
             ann_path = os.path.join(self.ds_path, ann_path_template.format(id + 1))
@@ -108,9 +114,13 @@ class FDDB:
 
                 origin_hmap = self._gen_heat_map(bb_list)
 
-                im = helpers.read_im_from_path(im_path)
-                im = cv2.resize(np.array(im), (IM_SHAPE[1], IM_SHAPE[0]))
-                ims.append(im)
+                if not use_path:
+                    im = helpers.read_im_from_path(im_path)
+                    im = cv2.resize(np.array(im), (IM_SHAPE[1], IM_SHAPE[0]))
+                    ims.append(im)
+                else:
+                    im_paths.append(im_path)
+
                 heat_maps.append(origin_hmap)
 
                 if augmentation:
@@ -122,6 +132,9 @@ class FDDB:
                     trans_im = cv2.resize(np.array(trans_im), (IM_SHAPE[1], IM_SHAPE[0]))
                     ims.append(trans_im)
                     heat_maps.append(trans_hmap)
+
+        if use_path:
+            return im_paths, heat_maps
 
         return ims, heat_maps
 
