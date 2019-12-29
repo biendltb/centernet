@@ -22,7 +22,13 @@ class GauFace:
     def forward_pass(self, im, heat_map):
         out_map = self.model(im)
 
+        # filter the heatmap in the range of 2.5 sigma
+        mask = tf.greater_equal(heat_map, tf.exp(-25.0/4))
+        diff_tensor = tf.abs(out_map - heat_map)
+        out = tf.boolean_mask(diff_tensor, mask)
+        loss = tf.reduce_mean(out)
+
         # use L2 loss
-        loss = tf.reduce_mean(tf.abs(out_map - heat_map))
+        # loss = tf.reduce_mean(tf.abs(out_map - heat_map))
 
         return loss

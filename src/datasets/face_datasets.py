@@ -35,7 +35,7 @@ def load_ds(batch_size=1):
     # WIDER FACE DATASET
     wider_face = WIDER(im_shape=(320, 320, 3))
     train_data, eval_data = wider_face.load_ds()
-    # train_data, _ = wider_face.load_ds()
+    train_data, _ = wider_face.load_ds()
 
     print('====== TRAIN DATA: {} | VALIDATION DATA: {} ======'.format(len(train_data[0]), len(eval_data[0])))
 
@@ -73,23 +73,24 @@ def load_vis_data(n=9):
 
 
 if __name__ == '__main__':
-    # train_ds, eval_ds = load_ds()
-    # for im, label in train_ds:
-    #     print(im.shape)
+    train_ds, eval_ds = load_ds()
+    for im, label in train_ds:
+        im = helpers.denorm_im(im[0])
+        print(im.shape)
 
-    # TEST dataset
-    fddb = FDDB(eval_set=9)
-    train_data, eval_data = fddb.load_ds(train_augm=False, use_path=True)
-    for im, hmap in zip(*train_data):
-        # test_im, _ = helpers.load_im(im_path, hmap, trans_code)
-        # test_im = tf.cast((im * 127.5 + 127.5), np.uint8)
-        im, _ = helpers.load_im_from_path(im, hmap)
+    # # TEST dataset
+    # fddb = FDDB(eval_set=9)
+    # train_data, eval_data = fddb.load_ds(train_augm=False, use_path=True)
+    # for im, hmap in zip(*train_data):
+    #     # test_im, _ = helpers.load_im(im_path, hmap, trans_code)
+    #     # test_im = tf.cast((im * 127.5 + 127.5), np.uint8)
+    #     im, _ = helpers.load_im_from_path(im, hmap)
+    #
+    #     hmap_im = helpers.cvt_hmap_to_im(hmap)
+    #     vis_im = tf.concat([im, hmap_im], axis=1)
+    #     pass
 
-        hmap_im = helpers.cvt_hmap_to_im(hmap)
-        vis_im = tf.concat([im, hmap_im], axis=1)
-        pass
 
-
-    # vis_ims, hmaps = load_vis_data(n=9)
+    vis_ims, hmaps = load_vis_data(n=9)
 
     pass

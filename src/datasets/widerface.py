@@ -73,17 +73,16 @@ class WIDER:
                 bb_cnt = 1
 
             # train only with images which have <= 5 faces per image
-            if bb_cnt > 5:
-                for i in range(bb_cnt):
-                    lines.pop(0)
-                continue
+            # if bb_cnt > 5:
+            #     for i in range(bb_cnt):
+            #         lines.pop(0)
+            #     continue
 
             for i in range(bb_cnt):
                 rect_params = lines.pop(0)
                 c_x, c_y, bb_w, bb_h = [float(x) for x in rect_params.split()]
 
                 hmap = helpers.point_to_heatmap((c_x, c_y), (bb_w, bb_h), self.im_shape[:2])
-
                 single_hmaps.append(hmap)
 
             final_hmap = np.max(single_hmaps, axis=0)
