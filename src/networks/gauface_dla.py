@@ -4,7 +4,7 @@
 """
 import tensorflow as tf
 
-INPUT_SHAPE = (224, 224, 3)
+INPUT_SHAPE = (128, 128, 3)
 NUM_CLASS = 1
 
 
@@ -205,8 +205,7 @@ def dla_lite_net():
     # channel last; None -> grayscale or color images
     inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, name='input')
 
-    x = _conv(inputs, base_filters, 15)
-    stage1 = _conv(x, base_filters * 2, 11)
+    stage1 = _conv(inputs, base_filters, 11)
     stage2 = _conv(stage1, base_filters * 2, strides=2)  # 1/2
 
     # stage 3
