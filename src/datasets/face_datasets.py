@@ -33,7 +33,7 @@ def load_ds(batch_size=1):
     # # _, eval_data = fddb.load_ds()
 
     # WIDER FACE DATASET
-    wider_face = WIDER(im_shape=(320, 320, 3))
+    wider_face = WIDER(im_shape=(128, 128, 3))
     train_data, eval_data = wider_face.load_ds()
     train_data, _ = wider_face.load_ds()
 

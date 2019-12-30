@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-INPUT_SHAPE = (320, 320, 3)
+INPUT_SHAPE = (128, 128, 3)
 
 
 def _conv(x, filters, kernel_size=7, strides=1):
@@ -63,7 +63,7 @@ def resnext_block(x, filters, cardinality=8, strides=4):
 def up_block(x, x_down, filters, up_scale=4):
     x_down = _conv_no_relu(x_down, filters, kernel_size=7)
 
-    x = tf.keras.layers.UpSampling2D(up_scale)(x)
+    x = tf.keras.layers.UpSampling2D(size=up_scale, interpolation='bilinear')(x)
     x = _conv_no_relu(x, filters, kernel_size=7)
     # x = _dconv(x, filters, kernel_size=up_scale, strides=up_scale)
 
@@ -78,11 +78,11 @@ def resnext_net():
 
     x = _conv(inputs, base_filters, 15)
 
-    stage_1 = resnext_block(x, base_filters * 2, strides=4)
+    stage_1 = resnext_block(x, base_filters * 2, strides=2)
 
-    stage_2 = resnext_block(stage_1, base_filters * 4, strides=4)
+    stage_2 = resnext_block(stage_1, base_filters * 4, strides=2)
 
-    stage_3 = resnext_block(stage_2, base_filters * 8, strides=4)
+    stage_3 = resnext_block(stage_2, base_filters * 8, strides=2)
 
     # stage_4 = resnext_block(stage_3, base_filters * 8, strides=2)
     #
@@ -94,11 +94,11 @@ def resnext_net():
     #
     # up_4 = up_block(up_5, stage_3, base_filters * 4, up_scale=2)
 
-    up_3 = up_block(bottom, stage_2, base_filters * 4, up_scale=4)
+    up_3 = up_block(bottom, stage_2, base_filters * 4, up_scale=2)
 
-    up_2 = up_block(up_3, stage_1, base_filters * 2, up_scale=4)
+    up_2 = up_block(up_3, stage_1, base_filters * 2, up_scale=2)
 
-    up_1 = up_block(up_2, x, base_filters, up_scale=4)
+    up_1 = up_block(up_2, x, base_filters, up_scale=2)
 
     features = _conv(up_1, base_filters)
 
