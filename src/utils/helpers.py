@@ -417,7 +417,7 @@ def read_im_from_path(im_path):
     # load im
     im = tf.io.read_file(im_path)
     im = tf.image.decode_png(im, channels=3)
-    im = tf.image.resize(im, (320, 320))
+    im = tf.image.resize(im, (128, 128))
 
     return im
 
