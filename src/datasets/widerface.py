@@ -40,7 +40,7 @@ class WIDER:
     def load_val_ds(self):
         return self._read_ann(self.val_ann_path, self.val_ims_dir)
 
-    def _read_ann(self, ann_path, ims_dir, augmentation, use_path):
+    def _read_ann(self, ann_path, ims_dir, augmentation, use_path, augmentation_ratio=0.7):
         """ Load all images paths and annotations
         The corresponding annotations are included in the file
         "wider_face_train_bbx_gt_cvt.txt" in the following
@@ -96,15 +96,17 @@ class WIDER:
                 ims.append(im)
 
             if augmentation:
-                # transform the image for data augmentation
-                gen_trans_code, new_bb_list = self.trans_gen.transformation_gen(bb_list)
-                trans_hmap = self._gen_heat_map(new_bb_list)
+                # roll a dice to see whether we augment this image
+                if np.random.rand() < augmentation_ratio:
+                    # transform the image for data augmentation
+                    gen_trans_code, new_bb_list = self.trans_gen.transformation_gen(bb_list)
+                    trans_hmap = self._gen_heat_map(new_bb_list)
 
-                trans_im = tf_apply_trans_codes(im, gen_trans_code)
-                trans_im = cv2.resize(np.array(trans_im), (self.im_shape[1], self.im_shape[0]))
+                    trans_im = tf_apply_trans_codes(im, gen_trans_code)
+                    trans_im = cv2.resize(np.array(trans_im), (self.im_shape[1], self.im_shape[0]))
 
-                ims.append(trans_im)
-                heat_maps.append(trans_hmap)
+                    ims.append(trans_im)
+                    heat_maps.append(trans_hmap)
 
         if not use_path:
             return ims, heat_maps
