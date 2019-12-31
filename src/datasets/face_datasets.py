@@ -12,10 +12,10 @@ from src.utils import helpers
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-def create_tf_ds(data, batch_size=1):
+def create_tf_ds(data, load_func, batch_size=1):
     im_cnt = len(data[0])
     ds = tf.data.Dataset.from_tensor_slices(data)
-    ds = ds.map(helpers.load_im_from_path, num_parallel_calls=AUTOTUNE)
+    ds = ds.map(load_func, num_parallel_calls=AUTOTUNE)
     ds = ds.shuffle(buffer_size=im_cnt)
     ds = ds.batch(batch_size)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
@@ -26,6 +26,10 @@ def create_tf_ds(data, batch_size=1):
 
 
 def load_ds(batch_size=1):
+    data_augmentation = True
+    use_path = False
+    load_func = helpers.load_im
+
     # # FDDB
     # fddb = FDDB(eval_set=9)
     # # load data and labels as tuples
@@ -34,13 +38,12 @@ def load_ds(batch_size=1):
 
     # WIDER FACE DATASET
     wider_face = WIDER(im_shape=(128, 128, 3))
-    train_data, eval_data = wider_face.load_ds()
-    train_data, _ = wider_face.load_ds()
+    train_data, eval_data = wider_face.load_ds(augmentation=data_augmentation, use_path=use_path)
 
     print('====== TRAIN DATA: {} | VALIDATION DATA: {} ======'.format(len(train_data[0]), len(eval_data[0])))
 
-    train_ds = create_tf_ds(train_data, batch_size=batch_size)
-    eval_ds = create_tf_ds(eval_data, batch_size=batch_size)
+    train_ds = create_tf_ds(train_data, load_func=load_func, batch_size=batch_size)
+    eval_ds = create_tf_ds(eval_data, load_func=load_func, batch_size=batch_size)
 
     return train_ds, eval_ds
 
