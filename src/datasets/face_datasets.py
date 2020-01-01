@@ -28,7 +28,6 @@ def create_tf_ds(data, load_func, batch_size=1):
 def load_ds(batch_size=1):
     data_augmentation = True
     use_path = False
-    load_func = helpers.load_im
 
     # # FDDB
     # fddb = FDDB(eval_set=9)
@@ -42,8 +41,8 @@ def load_ds(batch_size=1):
 
     print('====== TRAIN DATA: {} | VALIDATION DATA: {} ======'.format(len(train_data[0]), len(eval_data[0])))
 
-    train_ds = create_tf_ds(train_data, load_func=load_func, batch_size=batch_size)
-    eval_ds = create_tf_ds(eval_data, load_func=load_func, batch_size=batch_size)
+    train_ds = create_tf_ds(train_data, load_func=helpers.load_im, batch_size=batch_size)
+    eval_ds = create_tf_ds(eval_data, load_func=helpers.load_im_from_path, batch_size=batch_size)
 
     return train_ds, eval_ds
 

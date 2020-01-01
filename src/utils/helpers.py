@@ -173,13 +173,18 @@ def heatmap_to_point(heat_map):
 
 
 # PARSE HEAT MAP TO BOXES
-def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
+def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10, area_threshold=0.1):
     """ Non-maxima suppression strategy:
         1) Remove all pixels which power < 0.95
         2) Repeat until all pixels are zero
         3) Get the max power point in the map
         4) Set all points which distance to the max-power point is less than min_dist to zero
         5) Keep the max_point and go back to 2)
+
+        :param heat_map: 2D array heat map
+        :param min_power: minimum power to sample the center
+        :param min_dist: minimum distance between centroids
+        :param area_threshold minimum coverage area of the candidate Gaussian distribution
 
     """
     candidates = []
@@ -216,7 +221,7 @@ def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
 
     candidates, scores = np.array(candidates), np.array(scores)
 
-    candidates = candidates[scores > 0.1]
+    candidates = candidates[scores > area_threshold]
 
     # use non-maxima suppression to edge out the duplicated candidates
     if len(candidates) > 1:
@@ -234,7 +239,6 @@ def heatmap_to_boxes(heat_map, min_power=0.95, min_dist=10):
         # apply IoU non-maxima suppression
         selected_ids = tf.image.non_max_suppression(tf_boxes, tf_scores, len(tf_boxes))
         candidates = candidates[selected_ids.numpy()]
-
 
     # parse bounding box coordinates to ratios
     candidates = _parse_coordinates(candidates, heat_map.shape)
@@ -357,10 +361,10 @@ def _parse_coordinates(candidates, im_shape):
     return outputs
 
 
-def draw_bb_on_im(heat_map, vis_im, add_hmap=False):
+def draw_bb_on_im(boxes, vis_im, heat_map=None, add_hmap=False):
     """ Take boxes from heat map and draw the bounding boxes
     """
-    boxes = heatmap_to_boxes(heat_map)
+    # boxes = heatmap_to_boxes(heat_map)
 
     h, w = vis_im.shape[:2]
 
@@ -405,10 +409,7 @@ def load_im_from_path(im_path, hmap):
     """
     im = read_im_from_path(im_path)
 
-    im = im_preprocess(im)
-
-    if hmap is not None:
-        hmap = hmap[:, :, tf.newaxis]
+    im , hmap = load_im(im, hmap)
 
     return im, hmap
 

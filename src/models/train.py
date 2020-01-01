@@ -136,7 +136,8 @@ class ModelTrain:
             # convert to the normal image
             vis_im = helpers.denorm_im(vis_im)
 
-            im = helpers.draw_bb_on_im(h_map, vis_im, add_hmap=True)
+            boxes = helpers.heatmap_to_boxes(h_map)
+            im = helpers.draw_bb_on_im(boxes, vis_im, h_map, add_hmap=True)
 
             plt.subplot(3, 3, i + 1)
             plt.imshow(im)

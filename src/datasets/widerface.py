@@ -31,7 +31,7 @@ class WIDER:
         train_ims, train_hmaps = self._read_ann(self.train_ann_path, self.train_ims_dir,
                                                 augmentation=augmentation, use_path=use_path)
         eval_ims, eval_hmaps = self._read_ann(self.val_ann_path, self.val_ims_dir,
-                                              augmentation=False, use_path=use_path)
+                                              augmentation=False, use_path=True)
 
         print('WIDER FACE DATASET: Train data: {}\nValidation data: {}'.format(len(train_ims), len(eval_ims)))
 
